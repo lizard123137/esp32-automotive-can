@@ -18,7 +18,7 @@ Properties that don't use the counter:
 - `Alerts`
 - `Acc`
 
-In open-source code I was able to find that interfaces with the cluster it is updated in the following way:
+In open-source code that interfaces with the cluster it is updated in the following way:
 - `Every 20ms` - Speed, RPM
 - `Every 100ms` - Ignition, Basic Drive Info, Gear, Fuel, Parking Brake, Distance, Alerts, Acc
 - `Every 500ms` - Lights, Blinkers, Backlight Brightness, Drive Mode
