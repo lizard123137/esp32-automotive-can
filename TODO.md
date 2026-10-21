@@ -6,6 +6,7 @@
 
 ### Writing to CAN bus
 - [ ] Maybe parsing DBC files for data (or use a json with the same information)
+- [x] Create debug logging system, with adjustable priority levels, to track data being sent
 
 ### GUI
 - [ ] Reading

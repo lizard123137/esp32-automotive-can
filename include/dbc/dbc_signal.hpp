@@ -8,7 +8,7 @@ struct DBCSignal {
 
     double factor;
     double offset;
-    double value;
+    double value; // TODO change to use raw bytes?
 
     bool is_signed;
     bool is_little_endian;

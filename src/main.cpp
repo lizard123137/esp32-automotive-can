@@ -6,6 +6,7 @@
 #include "crc/crc.hpp"
 #include "dbc/dbc_message.hpp"
 #include "dbc/dbc_signal.hpp"
+#include "logger.hpp"
 
 #define SPI_CS_PIN 3
 
@@ -16,6 +17,7 @@ unsigned long last_update_fast = 0;
 unsigned long last_update_mid = 0;
 unsigned long last_update_slow = 0;
 
+DBCMessage dbc_message_speed("Speed", 0x1A1, 5, CAN);
 DBCMessage dbc_message_ignition("IgnitionStatus", 0x12F, 7, CAN);
 DBCMessage dbc_message_drivemode("DriveMode", 0x3A7, 7, CAN);
 DBCMessage dbc_message_backlight("BacklightBrightness", 0x202, 2, CAN);
@@ -23,7 +25,7 @@ DBCMessage dbc_message_lights("Lights", 0x21A, 3, CAN);
 DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2, CAN);
 
  void setup() {
-    Serial.begin(115200);
+    Serial.begin(9600);
     pinMode(SPI_CS_PIN, OUTPUT);
 
     while (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ)) {
@@ -31,12 +33,22 @@ DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2, CAN);
     }
     CAN.setMode(MCP_NORMAL);
 
+    Serial.println("Testing normal write");
+    Logger::print(INFO, "MainSetup", "Initialized CAN");
+
     // Messages setup
+
+    dbc_message_speed.use_counter = true;
+    dbc_message_speed.default_payload = {
+        0xC0, 0x00, 0x00, 0x81, 0x00
+    };
+    dbc_message_speed.use_crc = true;
+    dbc_message_speed.crc_func = getCrc8;
 
     dbc_message_ignition.use_counter = true;
     dbc_message_ignition.default_payload = {
         0x80, 0x08, 0xDD, 0xF1,
-        0x01, 0x30, 0x06, 0x00
+        0x01, 0x30, 0x06
     };
     dbc_message_ignition.use_crc = true;
     dbc_message_ignition.crc_func = getCrc8;
@@ -44,7 +56,7 @@ DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2, CAN);
     dbc_message_drivemode.use_counter = true;
     dbc_message_drivemode.default_payload = {
         0xF0, 0x00, 0x00, 0x00,
-        0x11, 0xC0, 0x00, 0x00,
+        0x11, 0xC0, 0x00
     };
     dbc_message_drivemode.crc_func = getCrc8;
     
@@ -68,8 +80,18 @@ DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2, CAN);
 
     // Signals
 
+    DBCSignal dbc_sig_speed_value = {
+        .name = "speed-value",
+        .start_bit = 8,
+        .bit_length = 18,
+        .factor = 0.0,
+        .offset = 0.0,
+        .value = 0x400191,
+    };
+    dbc_message_speed.signals.push_back(dbc_sig_speed_value);
+
     DBCSignal dbc_sig_ignition_state = {
-        .name = "Ignition State",
+        .name = "ignition-state",
         .start_bit = 8,
         .bit_length = 8,
         .factor = 1.0,
@@ -79,7 +101,7 @@ DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2, CAN);
     dbc_message_ignition.signals.push_back(dbc_sig_ignition_state);
 
     DBCSignal dbc_sig_drive_mode_state {
-        .name = "Drive Mode State",
+        .name = "drive-mode-state",
         .start_bit = 24,
         .bit_length = 8,
         .factor = 1.0,
@@ -89,35 +111,35 @@ DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2, CAN);
     dbc_message_drivemode.signals.push_back(dbc_sig_drive_mode_state);
 
     DBCSignal dbc_sig_backlight_brightness = {
-        .name = "Backlight Brightness",
+        .name = "backlight-brightness",
         .start_bit = 0,
         .bit_length = 8,
         .factor = 1.0,
         .offset = 0.0,
-        .value = 253,
+        .value = 0,
     };
     dbc_message_backlight.signals.push_back(dbc_sig_backlight_brightness);    
 
     DBCSignal dbc_sig_lights_highbeams = {
-        .name = "HighBeam",
+        .name = "high-beam",
         .start_bit = 1,
         .bit_length = 1,
         .value = 1,
     };
     DBCSignal dbc_sig_lights_main = {
-        .name = "MainLights",
+        .name = "main-lights",
         .start_bit = 2,
         .bit_length = 1,
         .value = 1,
     };
     DBCSignal dbc_sig_lights_ffog = {
-        .name = "FrontFog",
+        .name = "front-fog",
         .start_bit = 5,
         .bit_length = 1,
         .value = 1,
     };
     DBCSignal dbc_sig_lights_rfog = {
-        .name = "RearFog",
+        .name = "rear-fog",
         .start_bit = 6,
         .bit_length = 1,
         .value = 1,
@@ -128,13 +150,13 @@ DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2, CAN);
     dbc_message_lights.signals.push_back(dbc_sig_lights_rfog);
 
     DBCSignal dbc_sig_blinkers_left = {
-        .name = "Blinker Left",
+        .name = "blinker-left",
         .start_bit = 4,
         .bit_length = 1,
         .value = 1,
     };
     DBCSignal dbc_sig_blinkers_right = {
-        .name = "Blinker Right",
+        .name = "blinker-right",
         .start_bit = 5,
         .bit_length = 1,
         .value = 1,
@@ -149,9 +171,10 @@ void loop() {
     if (now - last_update_fast >= 20) {
         last_update_fast = now;
 
+        dbc_message_speed.sendMessage(0xA9, counter_4bit);
+
         counter_4bit++;
         if (counter_4bit >= 14) counter_4bit = 0;
-    
     }
 
     if (now - last_update_mid >= 100) {
@@ -163,9 +186,16 @@ void loop() {
     if (now - last_update_slow >= 500) {
         last_update_slow = now;
 
+        double backlight;
+        if (dbc_message_backlight.getSignalValue("backlight-brightness", backlight)) {
+            Serial.println("Failed to get backlight value");
+        }
+
+        dbc_message_backlight.setSignalValue("backlight-brightness", backlight == 0 ? 253 : 0);
+
         dbc_message_drivemode.sendMessage(0x4A, counter_4bit);
         dbc_message_backlight.sendMessage();
         dbc_message_lights.sendMessage();
-        dbc_message_blinkers.sendMessage();
+        //dbc_message_blinkers.sendMessage();
     }
 }

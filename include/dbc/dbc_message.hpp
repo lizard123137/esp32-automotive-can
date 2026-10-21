@@ -1,10 +1,14 @@
 #pragma once
 
+#include <cstdio>
+#include <mcp_can.h>
+
 #include <algorithm>
 #include <functional>
 #include <vector>
 
 #include "dbc_signal.hpp"
+#include "../logger.hpp"
 
 class DBCMessage {
 public:
@@ -101,6 +105,32 @@ public:
             len++;
         }
 
+        // Log message
+        std::string message_str;
+        for (size_t i = 0; i < len; i++) {
+            char buf[3];
+            std::sprintf(buf, "%02x ", bytes[i]);
+            message_str += buf;
+        }
+        Logger::print(DEBUG, "DBC_MESSAGE", "Data sent to ID %x - %s", this->id, message_str.c_str());
+
         this->canbus.sendMsgBuf(this->id, 0, len, bytes.data());
+    }
+
+    int getSignalValue(const std::string &name, double &value) {
+        for (auto signal : this->signals) {
+            if (signal.name == name) {
+                value = signal.value;
+                return 0;
+            }
+        }
+        return -1; // Failed to find signal
+    }
+
+    void setSignalValue(const std::string &name, double value) {
+        for (auto signal : this->signals) {
+            if (signal.name == name)
+                signal.value = value;
+        }
     }
 };
