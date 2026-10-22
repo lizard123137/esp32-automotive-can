@@ -1,5 +1,7 @@
 #include <Arduino.h>
+#include <ESPAsyncWebServer.h>
 #include <mcp_can.h>
+#include <WiFi.h>
 
 #include <cmath>
 
@@ -7,10 +9,12 @@
 #include "dbc/dbc_message.hpp"
 #include "dbc/dbc_signal.hpp"
 #include "logger.hpp"
+#include "secrets.hpp"
 
 #define SPI_CS_PIN 3
 
 MCP_CAN CAN(SPI_CS_PIN);
+AsyncWebServer server(80);
 
 uint8_t counter_4bit = 0;
 unsigned long last_update_fast = 0;
@@ -26,6 +30,32 @@ DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2, CAN);
 
  void setup() {
     Serial.begin(9600);
+    Logger::print(INFO, "UART", "Started serial communication");
+
+    //
+    // WiFi Setup
+    //
+
+    // Log error on disconnect
+    WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
+        if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+            Logger::print(ERROR, "WiFi", "WiFi disconnected. Reason: %d", info.wifi_sta_disconnected.reason);
+        }
+    });
+
+    // Connect to WiFi that was set in secrets.hpp
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
+    if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+        Logger::print(ERROR, "WiFi", "Failed to connect to wifi SSID: %s", WIFI_SSID);
+        return;
+    }
+    Logger::print(INFO, "WiFi", "Received IP: %s", WiFi.localIP());
+
+    //
+    // CAN Setup
+    //
+
     pinMode(SPI_CS_PIN, OUTPUT);
 
     while (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ)) {
@@ -33,8 +63,11 @@ DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2, CAN);
     }
     CAN.setMode(MCP_NORMAL);
 
-    Serial.println("Testing normal write");
-    Logger::print(INFO, "MainSetup", "Initialized CAN");
+    Logger::print(INFO, "CAN", "Initialized CAN");
+
+    //
+    // HTTP server setup
+    //
 
     // Messages setup
 
