@@ -6,36 +6,27 @@
 #include <cmath>
 
 #include "crc/crc.hpp"
+#include "devices.hpp"
 #include "dbc/dbc_message.hpp"
 #include "dbc/dbc_signal.hpp"
 #include "logger.hpp"
 #include "secrets.hpp"
-
-#define SPI_CS_PIN 3
+#include "timer.hpp"
+#include "scheduler.hpp"
 
 MCP_CAN CAN(SPI_CS_PIN);
+
 AsyncWebServer server(80);
 
-uint8_t counter_4bit = 0;
-unsigned long last_update_fast = 0;
-unsigned long last_update_mid = 0;
-unsigned long last_update_slow = 0;
+Scheduler scheduler;
 
-DBCMessage dbc_message_speed("Speed", 0x1A1, 5, CAN);
-DBCMessage dbc_message_ignition("IgnitionStatus", 0x12F, 7, CAN);
-DBCMessage dbc_message_drivemode("DriveMode", 0x3A7, 7, CAN);
-DBCMessage dbc_message_backlight("BacklightBrightness", 0x202, 2, CAN);
-DBCMessage dbc_message_lights("Lights", 0x21A, 3, CAN);
-DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2, CAN);
-
- void setup() {
+void setup() {
     Serial.begin(9600);
     Logger::print(INFO, "UART", "Started serial communication");
 
     //
     // WiFi Setup
     //
-
     // Log error on disconnect
     WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
         if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
@@ -44,18 +35,17 @@ DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2, CAN);
     });
 
     // Connect to WiFi that was set in secrets.hpp
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
-    if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-        Logger::print(ERROR, "WiFi", "Failed to connect to wifi SSID: %s", WIFI_SSID);
-        return;
-    }
-    Logger::print(INFO, "WiFi", "Received IP: %s", WiFi.localIP());
+    // WiFi.mode(WIFI_STA);
+    // WiFi.begin(WIFI_SSID, WIFI_PASS);
+    // if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    //     Logger::print(ERROR, "WiFi", "Failed to connect to wifi SSID: %s", WIFI_SSID);
+    //     return;
+    // }
+    // Logger::print(INFO, "WiFi", "Received IP: %s", WiFi.localIP());
 
     //
     // CAN Setup
     //
-
     pinMode(SPI_CS_PIN, OUTPUT);
 
     while (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ)) {
@@ -65,170 +55,14 @@ DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2, CAN);
 
     Logger::print(INFO, "CAN", "Initialized CAN");
 
+    // TODO HTTP server setup
+
     //
-    // HTTP server setup
+    // Initialize device scheduler
     //
-
-    // Messages setup
-
-    dbc_message_speed.use_counter = true;
-    dbc_message_speed.default_payload = {
-        0xC0, 0x00, 0x00, 0x81, 0x00
-    };
-    dbc_message_speed.use_crc = true;
-    dbc_message_speed.crc_func = getCrc8;
-
-    dbc_message_ignition.use_counter = true;
-    dbc_message_ignition.default_payload = {
-        0x80, 0x08, 0xDD, 0xF1,
-        0x01, 0x30, 0x06
-    };
-    dbc_message_ignition.use_crc = true;
-    dbc_message_ignition.crc_func = getCrc8;
-    
-    dbc_message_drivemode.use_counter = true;
-    dbc_message_drivemode.default_payload = {
-        0xF0, 0x00, 0x00, 0x00,
-        0x11, 0xC0, 0x00
-    };
-    dbc_message_drivemode.crc_func = getCrc8;
-    
-    dbc_message_backlight.use_counter = false;
-    dbc_message_backlight.default_payload = {
-        0xFF, 0xFF,
-    };
-    dbc_message_backlight.use_crc = false;
-    
-    dbc_message_lights.use_counter = false;
-    dbc_message_lights.default_payload = {
-        0x00, 0xC0, 0xF7
-    };
-    dbc_message_lights.use_crc = false;
-
-    dbc_message_blinkers.use_counter = false;
-    dbc_message_blinkers.default_payload = {
-        0x81, 0xF0 // TODO fix to support blinkers off
-    };
-    dbc_message_blinkers.use_crc = false;
-
-    // Signals
-
-    DBCSignal dbc_sig_speed_value = {
-        .name = "speed-value",
-        .start_bit = 8,
-        .bit_length = 18,
-        .factor = 0.0,
-        .offset = 0.0,
-        .value = 0x400191,
-    };
-    dbc_message_speed.signals.push_back(dbc_sig_speed_value);
-
-    DBCSignal dbc_sig_ignition_state = {
-        .name = "ignition-state",
-        .start_bit = 8,
-        .bit_length = 8,
-        .factor = 1.0,
-        .offset = 0.0,
-        .value = 0x8A,
-    };
-    dbc_message_ignition.signals.push_back(dbc_sig_ignition_state);
-
-    DBCSignal dbc_sig_drive_mode_state {
-        .name = "drive-mode-state",
-        .start_bit = 24,
-        .bit_length = 8,
-        .factor = 1.0,
-        .offset = 0.0,
-        .value = 5, // Sport+
-    };
-    dbc_message_drivemode.signals.push_back(dbc_sig_drive_mode_state);
-
-    DBCSignal dbc_sig_backlight_brightness = {
-        .name = "backlight-brightness",
-        .start_bit = 0,
-        .bit_length = 8,
-        .factor = 1.0,
-        .offset = 0.0,
-        .value = 0,
-    };
-    dbc_message_backlight.signals.push_back(dbc_sig_backlight_brightness);    
-
-    DBCSignal dbc_sig_lights_highbeams = {
-        .name = "high-beam",
-        .start_bit = 1,
-        .bit_length = 1,
-        .value = 1,
-    };
-    DBCSignal dbc_sig_lights_main = {
-        .name = "main-lights",
-        .start_bit = 2,
-        .bit_length = 1,
-        .value = 1,
-    };
-    DBCSignal dbc_sig_lights_ffog = {
-        .name = "front-fog",
-        .start_bit = 5,
-        .bit_length = 1,
-        .value = 1,
-    };
-    DBCSignal dbc_sig_lights_rfog = {
-        .name = "rear-fog",
-        .start_bit = 6,
-        .bit_length = 1,
-        .value = 1,
-    };
-    dbc_message_lights.signals.push_back(dbc_sig_lights_highbeams);
-    dbc_message_lights.signals.push_back(dbc_sig_lights_main);
-    dbc_message_lights.signals.push_back(dbc_sig_lights_ffog);
-    dbc_message_lights.signals.push_back(dbc_sig_lights_rfog);
-
-    DBCSignal dbc_sig_blinkers_left = {
-        .name = "blinker-left",
-        .start_bit = 4,
-        .bit_length = 1,
-        .value = 1,
-    };
-    DBCSignal dbc_sig_blinkers_right = {
-        .name = "blinker-right",
-        .start_bit = 5,
-        .bit_length = 1,
-        .value = 1,
-    };
-    dbc_message_blinkers.signals.push_back(dbc_sig_blinkers_left);
-    dbc_message_blinkers.signals.push_back(dbc_sig_blinkers_right);
+    scheduler = init_scheduler_f30_cluster();
 }
 
 void loop() {
-    unsigned long now = millis();
-
-    if (now - last_update_fast >= 20) {
-        last_update_fast = now;
-
-        dbc_message_speed.sendMessage(0xA9, counter_4bit);
-
-        counter_4bit++;
-        if (counter_4bit >= 14) counter_4bit = 0;
-    }
-
-    if (now - last_update_mid >= 100) {
-        last_update_mid = now;
-
-        dbc_message_ignition.sendMessage(0x44, counter_4bit);
-    }
-
-    if (now - last_update_slow >= 500) {
-        last_update_slow = now;
-
-        double backlight;
-        if (dbc_message_backlight.getSignalValue("backlight-brightness", backlight)) {
-            Serial.println("Failed to get backlight value");
-        }
-
-        dbc_message_backlight.setSignalValue("backlight-brightness", backlight == 0 ? 253 : 0);
-
-        dbc_message_drivemode.sendMessage(0x4A, counter_4bit);
-        dbc_message_backlight.sendMessage();
-        dbc_message_lights.sendMessage();
-        //dbc_message_blinkers.sendMessage();
-    }
+    scheduler.step();
 }

@@ -8,39 +8,37 @@
 #include <vector>
 
 #include "dbc_signal.hpp"
+#include "../can.hpp"
+#include "../counter.hpp"
 #include "../logger.hpp"
 
 class DBCMessage {
 public:
     std::string name;
 
-    MCP_CAN& canbus;
-    
     uint32_t id;
     uint8_t dlc;
     
     std::array<uint8_t, 8> default_payload{};
     std::vector<DBCSignal> signals;
 
-    bool use_crc = false;
-    std::function<uint8_t(const uint8_t*, size_t, uint8_t)> crc_func;
+    std::function<uint8_t(const uint8_t*, size_t, uint8_t)> crc_func = nullptr;
 
-    bool use_counter = false;
+    Counter *counter;
     uint8_t counter_start_bit = 0;
-    uint8_t counter_bit_len = 4;
 
     DBCMessage() = default;
     DBCMessage(
         std::string name,
         uint32_t id,
         uint8_t dlc,
-        MCP_CAN& canbus
+        Counter *counter = nullptr
     ) : name(std::move(name)),
         id(id),
         dlc(dlc),
-        canbus(canbus) {}
+        counter(counter) {}
 
-    std::array<uint8_t, 8> getBytes(uint8_t counter = 0) {
+    std::array<uint8_t, 8> getBytes() {
         auto bytes = this->default_payload;
 
         for (const auto& signal : this->signals) {
@@ -71,8 +69,8 @@ public:
             }
         }
 
-        if (this->use_counter) {
-            for (uint8_t i = 0; i < this->counter_bit_len; ++i) {
+        if (this->counter) {
+            for (uint8_t i = 0; i < this->counter->bit_length; ++i) {
                 const uint16_t bit_position = this->counter_start_bit + i;
                 const uint16_t byte_idx = bit_position / 8;
                 const uint8_t bit_idx = bit_position % 8;
@@ -85,20 +83,20 @@ public:
 
                 bytes[byte_idx] &= static_cast<uint8_t>(~mask);
 
-                if ((counter >> i) & 1u) {
+                if ((this->counter->value >> i) & 1u) {
                     bytes[byte_idx] |= mask;
                 }
             }
         }
-
+        
         return bytes;
     }
 
-    void sendMessage(uint8_t final_xor = 0, uint8_t counter = 0) {
-        auto bytes = this->getBytes(counter);
+    void sendMessage(uint8_t final_xor = 0) {
+        auto bytes = this->getBytes();
         uint8_t len = this->dlc;
 
-        if (this->use_crc) {
+        if (this->crc_func) {
             uint8_t crc = this->crc_func(bytes.data(), this->dlc, final_xor);
             std::move_backward(bytes.begin(), bytes.end() - 1, bytes.end());
             bytes[0] = crc;
@@ -114,23 +112,6 @@ public:
         }
         Logger::print(DEBUG, "DBC_MESSAGE", "Data sent to ID %x - %s", this->id, message_str.c_str());
 
-        this->canbus.sendMsgBuf(this->id, 0, len, bytes.data());
-    }
-
-    int getSignalValue(const std::string &name, double &value) {
-        for (auto signal : this->signals) {
-            if (signal.name == name) {
-                value = signal.value;
-                return 0;
-            }
-        }
-        return -1; // Failed to find signal
-    }
-
-    void setSignalValue(const std::string &name, double value) {
-        for (auto signal : this->signals) {
-            if (signal.name == name)
-                signal.value = value;
-        }
+        CAN.sendMsgBuf(this->id, 0, len, bytes.data());
     }
 };

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
 // SAE J1850 CRC8
 const uint8_t crc8_lut[] = {
     0x00, 0x1d, 0x3a, 0x27, 0x74, 0x69, 0x4e, 0x53, 0xe8, 0xf5, 0xd2, 0xcf,
@@ -26,7 +29,7 @@ const uint8_t crc8_lut[] = {
     0xe3, 0xfe, 0xd9, 0xc4
 };
 
-uint8_t getCrc8(
+inline uint8_t getCrc8(
     const uint8_t message[],
     size_t n_bytes,
     uint8_t final_xor
