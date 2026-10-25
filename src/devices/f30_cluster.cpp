@@ -133,7 +133,6 @@ Scheduler& init_scheduler_f30_cluster() {
     dbc_message_backlight.default_payload = { 0xFF, 0xFF };
     
     dbc_message_lights.default_payload = { 0x00, 0xC0, 0xF7 };
-    
     // TODO fix to support blinkers off
     dbc_message_blinkers.default_payload = { 0x81, 0xF0 };
 
@@ -164,6 +163,7 @@ Scheduler& init_scheduler_f30_cluster() {
     timer_mid.messages.push_back(&dbc_message_ignition);
 
     timer_slow.messages.push_back(&dbc_message_drivemode);
+    // timer_slow.messages.push_back(&dbc_message_blinkers);
     timer_slow.messages.push_back(&dbc_message_backlight);
     timer_slow.messages.push_back(&dbc_message_lights);
 

@@ -10,7 +10,7 @@ enum logger_level {
 
 class Logger {
 public:
-    static const logger_level current_level = DEBUG;
+    static const logger_level current_level = INFO;
 
     static void print(
         logger_level level,
