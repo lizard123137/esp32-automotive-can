@@ -5,10 +5,12 @@
 
 #include <cmath>
 
+#include "can.hpp"
 #include "crc/crc.hpp"
 #include "devices.hpp"
 #include "dbc/dbc_message.hpp"
 #include "dbc/dbc_signal.hpp"
+#include "http/api.hpp"
 #include "logger.hpp"
 #include "secrets.hpp"
 #include "timer.hpp"
@@ -19,7 +21,8 @@ MCP_CAN CAN(SPI_CS_PIN);
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
-Scheduler scheduler;
+CANManager can_manager;
+Scheduler current_scheduler;
 
 void setup() {
     Serial.begin(9600);
@@ -28,27 +31,27 @@ void setup() {
     //
     // WiFi Setup
     //
-    // Log error on disconnect
-    WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
-        if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
-            Logger::print(ERROR, "WiFi", "WiFi disconnected. Reason: %d", info.wifi_sta_disconnected.reason);
-        }
-    });
+
+    // Create a WiFi access point with credentials defined in secrets.hpp
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(WIFI_SSID, WIFI_PASS);
+    Logger::print(INFO, "WiFi", "Access point IP: %s", WiFi.softAPIP().toString().c_str());
 
     // Connect to WiFi that was set in secrets.hpp
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
-    if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-        Logger::print(ERROR, "WiFi", "Failed to connect to wifi SSID: %s", WIFI_SSID);
-        return;
-    }
-    Logger::print(INFO, "WiFi", "Received IP: %s", WiFi.localIP().toString().c_str());
+    // WiFi.mode(WIFI_STA);
+    // WiFi.begin(WIFI_SSID, WIFI_PASS);
+    // if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    //     Logger::print(ERROR, "WiFi", "Failed to connect to wifi SSID: %s", WIFI_SSID);
+    //     return;
+    // }
+    // Logger::print(INFO, "WiFi", "Received IP: %s", WiFi.localIP().toString().c_str());
 
     //
     // CAN Setup
     //
     pinMode(SPI_CS_PIN, OUTPUT);
 
+    // IMPORTANT! Some older vehicles use 250kbps.
     while (CAN.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ)) {
         delay(500);
     }
@@ -59,46 +62,15 @@ void setup() {
     //
     // HTTP Setup
     //
-    ws.onEvent([](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-        if (type == WS_EVT_CONNECT) {
-            Logger::print(INFO, "WebSocket", "Client connected: %u", client->id());
-        } else if (type == WS_EVT_DISCONNECT) {
-            Logger::print(INFO, "WebSocket", "Client disconnected: %u", client->id());
-        } else if (type == WS_EVT_DATA) {
-            Logger::print(DEBUG, "WebSocket", "Received data from client: %u", client->id());
-        }
-    });
-    server.addHandler(&ws);
-
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send_P(200, "text/html", R"rawliteral(
-            <!DOCTYPE html>
-            <html>
-                <head>
-                    <title>ESP32 Automotive CAN</title>
-                    <script>
-                        const ws = new WebSocket("ws"//${location.host}/ws);
-                        ws.onmessage = (event) => {
-                            console.log("Received message from server:", event.data);
-                        };
-                    </script>
-                </head>
-                <body>
-                    <h1>ESP32 Automotive CAN</h1>
-                    <p>Welcome to the ESP32 Automotive CAN web interface!</p>
-                </body>
-            </html>
-        )rawliteral");
-    });
-
-    server.begin();
-
+    init_api(server, ws);
+    
     //
     // Initialize device scheduler
     //
-    scheduler = init_scheduler_f30_cluster();
+    current_scheduler = init_scheduler_f30_cluster();
 }
 
 void loop() {
-    scheduler.step();
+    can_manager.readFrame();
+    current_scheduler.step();
 }

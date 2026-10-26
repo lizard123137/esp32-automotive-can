@@ -10,3 +10,5 @@ public:
 
     void step();
 };
+
+extern Scheduler current_scheduler;
