@@ -9,6 +9,7 @@ public:
     std::vector<Timer*> timers;
 
     void step();
+    int updateSignalValue(std::string signal_name, double value);
 };
 
 extern Scheduler current_scheduler;

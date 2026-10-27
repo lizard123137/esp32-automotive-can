@@ -91,10 +91,29 @@ void init_api(AsyncWebServer& server, AsyncWebSocket& ws) {
     });
 
     //
-    // POST Endpoints Setup
+    // PATCH Endpoints Setup
     //
 
-    // TODO server.on("/api/signal/value")
+    server.on("^\\/api\\/signals\\/(S+)$", HTTP_PATCH, [](AsyncWebServerRequest *request) {
+        std::string signal_name(request->pathArg(0).c_str());
+        Logger::print(INFO, "API", "Received PATCH request for signal: %s", signal_name.c_str());
+
+        if (request->hasParam("value", true)) {
+            String value_str = request->getParam("value", true)->value();
+            double new_value = value_str.toDouble();
+            Logger::print(INFO, "API", "New value for signal %s: %f", signal_name.c_str(), new_value);
+
+            // Update the signal value in the scheduler
+            int result = current_scheduler.updateSignalValue(signal_name, new_value);
+            if (result == 0) {
+                request->send(200, "application/json", "{\"status\":\"success\"}");
+            } else {
+                request->send(404, "application/json", "{\"status\":\"error\",\"message\":\"Signal not found\"}");
+            }
+        } else {
+            request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'value' parameter\"}");
+        }
+    });
     
     server.begin();
 }

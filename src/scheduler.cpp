@@ -10,3 +10,17 @@ void Scheduler::step() {
         }
     }
 }
+
+int Scheduler::updateSignalValue(std::string signal_name, double value) {
+    for (const auto& timer : this->timers) {
+        for (const auto& message : timer->messages) {
+            for (auto& signal : message->signals) {
+                if (signal.name == signal_name) {
+                    signal.value = value;
+                    return 0; // Success
+                }
+            }
+        }
+    }
+    return -1; // Error: Signal not found
+}
