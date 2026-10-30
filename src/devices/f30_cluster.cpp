@@ -19,6 +19,7 @@ static Timer timer_slow(500);
 // Messages
 //
 static DBCMessage dbc_message_speed("Speed", 0x1A1, 5);
+static DBCMessage dbc_message_rpm("RPM", 0x0F3, 7);
 static DBCMessage dbc_message_drivemode("DriveMode", 0x3A7, 7);
 static DBCMessage dbc_message_backlight("BacklightBrightness", 0x202, 2);
 static DBCMessage dbc_message_ignition("IgnitionStatus", 0x12F, 7);
@@ -34,9 +35,19 @@ static DBCSignal dbc_sig_speed_value = {
     .name = "speed-value",
     .start_bit = 8,
     .bit_length = 18,
-    .factor = 0.0,
+    .factor = 1.0,
     .offset = 0.0,
     .value = 0x400191,
+};
+
+// RPM
+static DBCSignal dbc_sig_rpm_value = {
+    .name = "rpm-value",
+    .start_bit = 16,
+    .bit_length = 16,
+    .factor = 1.0,
+    .offset = 0.0,
+    .value = 800, // Idle RPM
 };
 
 // Ignition
@@ -74,24 +85,28 @@ static DBCSignal dbc_sig_lights_highbeams = {
     .name = "high-beam",
     .start_bit = 1,
     .bit_length = 1,
+    .factor = 1.0,
     .value = 1,
 };
 static DBCSignal dbc_sig_lights_main = {
     .name = "main-lights",
     .start_bit = 2,
     .bit_length = 1,
+    .factor = 1.0,
     .value = 1,
 };
 static DBCSignal dbc_sig_lights_ffog = {
     .name = "front-fog",
     .start_bit = 5,
     .bit_length = 1,
+    .factor = 1.0,
     .value = 1,
 };
 static DBCSignal dbc_sig_lights_rfog = {
     .name = "rear-fog",
     .start_bit = 6,
     .bit_length = 1,
+    .factor = 1.0,
     .value = 1,
 };
 
@@ -100,13 +115,15 @@ static DBCSignal dbc_sig_blinkers_left = {
     .name = "blinker-left",
     .start_bit = 4,
     .bit_length = 1,
-    .value = 1,
+    .factor = 1.0,
+    .value = 0,
 };
 static DBCSignal dbc_sig_blinkers_right = {
     .name = "blinker-right",
     .start_bit = 5,
     .bit_length = 1,
-    .value = 1,
+    .factor = 1.0,
+    .value = 0,
 };
 
 //
@@ -121,6 +138,10 @@ Scheduler& init_scheduler_f30_cluster() {
     dbc_message_speed.counter = &counter_4bit;
     dbc_message_speed.default_payload = { 0xC0, 0x00, 0x00, 0x81, 0x00 };
     dbc_message_speed.crc_func = getCrc8;
+
+    dbc_message_rpm.counter = &counter_4bit;
+    dbc_message_rpm.default_payload = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    dbc_message_rpm.crc_func = getCrc8;
 
     dbc_message_ignition.counter = &counter_4bit;
     dbc_message_ignition.default_payload = { 0x80, 0x08, 0xDD, 0xF1, 0x01, 0x30, 0x06 };
@@ -141,6 +162,8 @@ Scheduler& init_scheduler_f30_cluster() {
     //
     dbc_message_speed.signals.push_back(dbc_sig_speed_value);
 
+    dbc_message_rpm.signals.push_back(dbc_sig_rpm_value);
+
     dbc_message_ignition.signals.push_back(dbc_sig_ignition_state);
 
     dbc_message_drivemode.signals.push_back(dbc_sig_drive_mode_state);
@@ -159,11 +182,12 @@ Scheduler& init_scheduler_f30_cluster() {
     // Timers
     //
     timer_fast.messages.push_back(&dbc_message_speed);
+    timer_fast.messages.push_back(&dbc_message_rpm);
 
     timer_mid.messages.push_back(&dbc_message_ignition);
 
     timer_slow.messages.push_back(&dbc_message_drivemode);
-    // timer_slow.messages.push_back(&dbc_message_blinkers);
+    timer_slow.messages.push_back(&dbc_message_blinkers);
     timer_slow.messages.push_back(&dbc_message_backlight);
     timer_slow.messages.push_back(&dbc_message_lights);
 
