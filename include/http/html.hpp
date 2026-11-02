@@ -342,8 +342,7 @@ const BLINK_R = 'blinker-right';
 const ALERT_TYPE = 'alert-type';
 const ALERT_VALUE = 'alert-value';
 
-// 0x1A1 carries speed in 1/64 km/h steps. Change this if the needle disagrees with the slider.
-const SPEED_RAW_PER_KMH = 64;
+const SPEED_RAW_PER_KMH = 64.01;
 const SPEED_MAX = 260;
 const RPM_MAX = 8000;
 const RPM_RAW_MAX = 0x2B;
@@ -835,18 +834,22 @@ function markPreset(container, value, map = Number) {
 
 // Speed
 const speedInput = $('#speed');
-const setSpeed = kmh => setSignal(SPEED, fromRaw(SPEED, Math.round(kmh * SPEED_RAW_PER_KMH)));
+const setSpeed = kmh => {
+  const speedRaw = Math.trunc(kmh * SPEED_RAW_PER_KMH);
+  const header = kmh === 0 ? 0x81 : 0x91;
+  setSignal(SPEED, fromRaw(SPEED, (header << 16) | speedRaw));
+};
 const speedDial = makeDial($('#speedDial'), { max: SPEED_MAX, minor: 10, major: 20, label: v => v, unit: 'km/h', onDrag: v => setSpeed(Math.round(v)) });
 buildPresets($('#speedPresets'), SPEED_PRESETS, 'km/h', setSpeed);
 speedInput.addEventListener('input', () => setSpeed(+speedInput.value));
 views[SPEED] = v => {
   const raw = toRaw(SPEED, v);
-  const kmh = raw / SPEED_RAW_PER_KMH;
+  const kmh = (raw & 0xFFFF) / SPEED_RAW_PER_KMH;
   speedDial.set(kmh, String(Math.round(kmh)));
   speedInput.value = Math.min(kmh, SPEED_MAX);
   setFill(speedInput);
   markPreset($('#speedPresets'), Math.round(kmh));
-  $('#speedRaw').textContent = 'raw ' + hex(raw, 5);
+  $('#speedRaw').textContent = 'raw ' + hex(raw, 6);
 };
 
 // Rev counter

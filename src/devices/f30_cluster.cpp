@@ -48,10 +48,10 @@ static DBCMessage dbc_message_acc("ACC Counter", 0x33B, 5);
 static DBCSignal dbc_sig_speed_value = {
     .name = "speed-value",
     .start_bit = 8,
-    .bit_length = 18,
+    .bit_length = 24,
     .factor = 1.0,
     .offset = 0.0,
-    .value = 0x400191,
+    .value = 0x910C80, // TODO create separate signal for last byte (is zero)
 };
 
 // RPM
