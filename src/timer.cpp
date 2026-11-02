@@ -12,9 +12,8 @@ int Timer::run() {
             message->sendMessage();
         }
 
-        // TODO maybe support multiple counters per timer
-        if (this->counter) {
-            this->counter->increment();
+        for (const auto& counter : this->counters) {
+            counter->increment();
         }
 
         this->last_timestamp = now;

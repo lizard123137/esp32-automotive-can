@@ -59,7 +59,7 @@ button { -webkit-user-select: none; user-select: none; }
 /* Layout */
 .grid { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; grid-template-columns: repeat(12, minmax(0, 1fr)); }
 .c-speed, .c-rpm { grid-column: span 6; }
-.c-ign, .c-mode, .c-bl { grid-column: span 4; }
+.c-ign, .c-mode, .c-bl, .c-alerts { grid-column: span 4; }
 .c-lights { grid-column: span 7; }
 .c-ind { grid-column: span 5; }
 .c-tel { grid-column: 1 / -1; }
@@ -127,6 +127,16 @@ body[data-ign=off] .ign-flag { display: inline; }
 .tile[aria-pressed=true] .st { color: var(--c); }
 .tile.hazard { --c: var(--red); color: #6b2e33; }
 .blink-off .tile.flash[aria-pressed=true] svg { color: var(--lamp-off); }
+.alert-control { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--field); }
+.alert-control .name { font-size: 12.5px; font-weight: 500; }
+.alert-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.alert-toggle .track { display: block; width: 38px; height: 22px; padding: 3px; border-radius: 11px; background: var(--border-strong); transition: background .2s; }
+.alert-toggle .thumb { display: block; width: 16px; height: 16px; border-radius: 50%; background: var(--text-2); transition: transform .2s, background .2s; }
+.alert-toggle .st { min-width: 24px; font: 11px var(--mono); color: var(--text-3); text-align: left; }
+.alert-toggle[aria-checked=true] .track { background: var(--amber); }
+.alert-toggle[aria-checked=true] .thumb { transform: translateX(16px); background: #fff; }
+.alert-toggle[aria-checked=true] .st { color: var(--amber); }
+.alert-toggle[aria-disabled=true] { opacity: .45; cursor: not-allowed; }
 
 /* Telemetry drawer */
 .c-tel { padding: 0; }
@@ -162,7 +172,7 @@ td.chg { animation: chg 1.2s ease-out; }
 
 @media (max-width: 1000px) {
   .c-ign, .c-mode { grid-column: span 6; }
-  .c-bl, .c-lights, .c-ind { grid-column: 1 / -1; }
+  .c-bl, .c-lights, .c-ind, .c-alerts { grid-column: 1 / -1; }
   .mon { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
@@ -259,6 +269,31 @@ td.chg { animation: chg 1.2s ease-out; }
     <div class="info" id="indInfo">--</div>
   </section>
 
+  <section class="card c-alerts">
+    <div class="card-head"><h2>Alerts</h2><span class="meta" data-tag="alert-type">--</span></div>
+    <div class="tiles three">
+      <button class="tile alert-type" data-sig="alert-type" data-value="15" type="button" aria-pressed="false" style="--c: var(--amber)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4.5a1 1 0 0 1 .8-1l11-2.2a1 1 0 0 1 1.2 1V21M5 21l11-2.2M5 21h14M18 5l3 2v12l-3 2M14.5 12h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="name">Door open</span><span class="st">SELECT</span>
+      </button>
+      <button class="tile alert-type" data-sig="alert-type" data-value="215" type="button" aria-pressed="false" style="--c: var(--blue)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m12 5.5 7 12H5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 9v4.5M12 16.2v.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span class="name">DSC</span><span class="st">SELECT</span>
+      </button>
+      <button class="tile alert-type hazard" data-sig="alert-type" data-value="34" type="button" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16H12.01M12 11V13M14 8V5M11 5H17M6 12H3M3 9V15M21 11V19M6 8V16H8L10 19H18V10L16 8H6Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="name">Check engine</span><span class="st">SELECT</span>
+      </button>
+    </div>
+    <div class="alert-control">
+      <span class="name">Alert state</span>
+      <button class="alert-toggle" id="alertToggle" data-sig="alert-value" type="button" role="switch" aria-label="Alert state" aria-checked="false">
+        <span class="track" aria-hidden="true"><span class="thumb"></span></span><span class="st">OFF</span>
+      </button>
+    </div>
+    <div class="info" id="alertInfo">--</div>
+  </section>
+
   <section class="card c-tel">
     <button class="drawer-toggle" id="telToggle" type="button" aria-expanded="false" aria-controls="telBody">
       <svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -304,11 +339,14 @@ const DRIVE = 'drive-mode-state';
 const BACKLIGHT = 'backlight-brightness';
 const BLINK_L = 'blinker-left';
 const BLINK_R = 'blinker-right';
+const ALERT_TYPE = 'alert-type';
+const ALERT_VALUE = 'alert-value';
 
 // 0x1A1 carries speed in 1/64 km/h steps. Change this if the needle disagrees with the slider.
 const SPEED_RAW_PER_KMH = 64;
 const SPEED_MAX = 260;
 const RPM_MAX = 8000;
+const RPM_RAW_MAX = 0x2B;
 const RPM_RED = 6500;
 const SPEED_PRESETS = [{ value: 0, caption: 'Stop' }, { value: 50, caption: 'City' }, { value: 90, caption: 'Road' }, { value: 140, caption: 'Highway' }];
 const RPM_PRESETS = [{ value: 0, caption: 'Off' }, { value: 800, caption: 'Idle' }, { value: 3000, caption: 'Cruise' }, { value: 6500, caption: 'Redline' }];
@@ -325,6 +363,14 @@ const MODES = [
   { value: 4, label: 'Sport', bg: '#ff7500', fg: '#1f0e00' },
   { value: 5, label: 'Sport+', bg: '#ef4444', fg: '#ffffff' },
 ];
+const ALERT_OFF = 0x28;
+const ALERT_ON = 0x29;
+const ALERT_TYPES = [
+  { value: 0x0F, label: 'Door open' },
+  { value: 0xD7, label: 'DSC' },
+  { value: 0x22, label: 'Check engine' },
+];
+const alertStates = [ALERT_OFF, ALERT_OFF, ALERT_OFF];
 const LAMP_L = '<path d="M13 5.5c4.4 0 8 2.9 8 6.5s-3.6 6.5-8 6.5z" fill="currentColor"/>';
 const LAMP_R = '<path d="M11 5.5c-4.4 0-8 2.9-8 6.5s3.6 6.5 8 6.5z" fill="currentColor"/>';
 const beams = d => `<path d="${d}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`;
@@ -335,7 +381,7 @@ const LAMPS = [
   { sig: 'front-fog', label: 'Front fog', status: 'FRONT FOG', color: 'var(--green)', icon: LAMP_L + beams('M10 8L3 10M10 12L3 14M10 16L3 18') + wave(6.5) },
   { sig: 'rear-fog', label: 'Rear fog', status: 'REAR FOG', color: 'var(--amber)', icon: LAMP_R + beams('M14 8h7M14 12h7M14 16h7') + wave(17.5) },
 ];
-const LABELS = { [SPEED]: 'Speed', [RPM]: 'RPM', [IGNITION]: 'Ignition', [DRIVE]: 'Drive mode', [BACKLIGHT]: 'Illumination', [BLINK_L]: 'Turn indicators', [BLINK_R]: 'Turn indicators' };
+const LABELS = { [SPEED]: 'Speed', [RPM]: 'RPM', [IGNITION]: 'Ignition', [DRIVE]: 'Drive mode', [BACKLIGHT]: 'Illumination', [BLINK_L]: 'Turn indicators', [BLINK_R]: 'Turn indicators', [ALERT_TYPE]: 'Alert type', [ALERT_VALUE]: 'Alert state' };
 LAMPS.forEach(l => { LABELS[l.sig] = l.label; });
 // From docs/F30-can-ids.md
 const KNOWN_IDS = {
@@ -783,8 +829,8 @@ function buildPresets(container, presets, unit, onPick) {
     container.append(b);
   }
 }
-function markPreset(container, value) {
-  for (const b of container.children) b.setAttribute('aria-current', String(+b.dataset.value === value));
+function markPreset(container, value, map = Number) {
+  for (const b of container.children) b.setAttribute('aria-current', String(map(+b.dataset.value) === value));
 }
 
 // Speed
@@ -805,17 +851,21 @@ views[SPEED] = v => {
 
 // Rev counter
 const rpmInput = $('#rpm');
-const setRpm = rpm => setSignal(RPM, Math.round(rpm / 50) * 50);
+const rpmToRaw = rpm => Math.round(Math.min(Math.max(rpm, 0), RPM_MAX) / RPM_MAX * RPM_RAW_MAX);
+const rawToRpm = raw => Math.round(Math.min(Math.max(raw, 0), RPM_RAW_MAX) / RPM_RAW_MAX * RPM_MAX);
+const setRpm = rpm => setSignal(RPM, fromRaw(RPM, rpmToRaw(rpm)));
 const rpmDial = makeDial($('#rpmDial'), { max: RPM_MAX, minor: 500, major: 1000, label: v => v / 1000, redFrom: RPM_RED, unit: 'rpm', onDrag: setRpm });
 buildPresets($('#rpmPresets'), RPM_PRESETS, 'rpm', setRpm);
 rpmInput.addEventListener('input', () => setRpm(+rpmInput.value));
 views[RPM] = v => {
-  const rpm = Math.max(0, Math.round(v));
+  const raw = toRaw(RPM, v);
+  const boundedRaw = Math.min(Math.max(raw, 0), RPM_RAW_MAX);
+  const rpm = rawToRpm(boundedRaw);
   rpmDial.set(rpm, String(rpm));
-  rpmInput.value = Math.min(rpm, RPM_MAX);
+  rpmInput.value = rpm;
   setFill(rpmInput);
-  markPreset($('#rpmPresets'), rpm);
-  $('#rpmRaw').textContent = 'raw ' + hex(toRaw(RPM, v), 4);
+  markPreset($('#rpmPresets'), boundedRaw, rpmToRaw);
+  $('#rpmRaw').textContent = 'raw ' + hex(boundedRaw, 4);
 };
 
 //
@@ -871,6 +921,51 @@ views[DRIVE] = v => {
   checkSeg(modeSeg, raw);
   $('#modeInfo').textContent = `${mode ? mode.label.toUpperCase() : 'UNKNOWN'} · ${hex(raw)}`;
 };
+
+//
+// Cluster alerts: choose a message type, then set its boolean value.
+//
+const alertButtons = $$('.alert-type');
+const alertToggle = $('#alertToggle');
+for (const button of alertButtons) {
+  button.onclick = () => {
+    const type = +button.dataset.value;
+    const index = ALERT_TYPES.findIndex(alert => alert.value === type);
+    setSignal(ALERT_TYPE, fromRaw(ALERT_TYPE, type));
+    setSignal(ALERT_VALUE, fromRaw(ALERT_VALUE, alertStates[index]));
+  };
+}
+alertToggle.onclick = () => {
+  const type = rawOf(ALERT_TYPE, ALERT_TYPES[2].value);
+  const index = ALERT_TYPES.findIndex(alert => alert.value === type);
+  setSignal(ALERT_VALUE, fromRaw(ALERT_VALUE, alertStates[index] === ALERT_ON ? ALERT_OFF : ALERT_ON));
+};
+function renderAlerts() {
+  const typeAvailable = isAvailable(ALERT_TYPE);
+  const valueAvailable = isAvailable(ALERT_VALUE);
+  const type = rawOf(ALERT_TYPE, ALERT_TYPES[2].value);
+  const alert = ALERT_TYPES.find(item => item.value === type);
+  const index = ALERT_TYPES.findIndex(item => item.value === type);
+  const value = alertStates[index];
+  const on = value === ALERT_ON;
+  for (const button of alertButtons) {
+    const selected = typeAvailable && +button.dataset.value === type;
+    button.setAttribute('aria-pressed', String(selected));
+    button.querySelector('.st').textContent = !typeAvailable ? 'not scheduled' : selected ? 'SELECTED' : 'SELECT';
+  }
+  alertToggle.setAttribute('aria-checked', String(valueAvailable && on));
+  alertToggle.querySelector('.st').textContent = valueAvailable ? (on ? 'ON' : 'OFF') : 'not scheduled';
+  $('#alertInfo').textContent = typeAvailable && valueAvailable
+    ? `${alert ? alert.label : 'Unknown alert'} · ${on ? 'ON' : 'OFF'} · ${hex(value)}`
+    : 'not scheduled';
+}
+views[ALERT_TYPE] = renderAlerts;
+views[ALERT_VALUE] = v => {
+  const index = ALERT_TYPES.findIndex(alert => alert.value === rawOf(ALERT_TYPE, ALERT_TYPES[2].value));
+  if (index >= 0) alertStates[index] = toRaw(ALERT_VALUE, v) === ALERT_ON ? ALERT_ON : ALERT_OFF;
+  renderAlerts();
+};
+renderAlerts();
 
 //
 // Cluster illumination

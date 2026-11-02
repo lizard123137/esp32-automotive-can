@@ -8,14 +8,13 @@
 
 class Timer {
 public:
-    Counter *counter;
     uint64_t interval;
 
     std::vector<DBCMessage*> messages;
+    std::vector<Counter*> counters;
 
-    Timer(uint64_t interval, Counter *counter = nullptr)
-        : interval(interval),
-          counter(counter) {}
+    Timer(uint64_t interval)
+        : interval(interval) {}
 
     int run();
 private:

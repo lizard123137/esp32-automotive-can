@@ -23,6 +23,7 @@ public:
     std::vector<DBCSignal> signals;
 
     std::function<uint8_t(const uint8_t*, size_t, uint8_t)> crc_func = nullptr;
+    uint8_t final_xor = 0;
 
     Counter *counter;
     uint8_t counter_start_bit = 0;
@@ -92,12 +93,12 @@ public:
         return bytes;
     }
 
-    void sendMessage(uint8_t final_xor = 0) {
+    void sendMessage() {
         auto bytes = this->getBytes();
         uint8_t len = this->dlc;
 
         if (this->crc_func) {
-            uint8_t crc = this->crc_func(bytes.data(), this->dlc, final_xor);
+            uint8_t crc = this->crc_func(bytes.data(), this->dlc, this->final_xor);
             std::move_backward(bytes.begin(), bytes.end() - 1, bytes.end());
             bytes[0] = crc;
             len++;

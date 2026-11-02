@@ -34,7 +34,8 @@ public:
         vsnprintf(buffer, sizeof(buffer), fmt, args);
         va_end(args);
 
-        Serial.printf("[%s] %s - %s\n", prefix, module_name.c_str(), buffer);
+        // Disabled to prevent issues during flashing. Since ESP32 uses uart for flashing???
+        // Serial.printf("[%s] %s - %s\n", prefix, module_name.c_str(), buffer);
     }
 
 private:
