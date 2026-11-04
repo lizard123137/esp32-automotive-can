@@ -10,6 +10,12 @@
 - [x] Create debug logging system, with adjustable priority levels, to track data being sent
 - [ ] Refactor timers to be interpreted as signals
 
+### F30 gauge
+- [ ] Steering wheel buttons
+- [ ] Parking brake can message
+- [ ] Fix setting gears
+- [ ] Fix RPM
+
 ### GUI
 - [ ] Reading
     - [ ] A generic table that shows the CAN frames

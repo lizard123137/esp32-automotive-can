@@ -35,6 +35,7 @@ const char html[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 html, body { margin: 0; }
 body { min-height: 100vh; background: var(--bg); color: var(--text); font: 14px/1.45 var(--font); font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
 button, input { font: inherit; color: inherit; }
+select { font: inherit; color: inherit; }
 button { -webkit-user-select: none; user-select: none; }
 :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 [hidden] { display: none !important; }
@@ -59,7 +60,7 @@ button { -webkit-user-select: none; user-select: none; }
 /* Layout */
 .grid { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; grid-template-columns: repeat(12, minmax(0, 1fr)); }
 .c-speed, .c-rpm { grid-column: span 6; }
-.c-ign, .c-mode, .c-bl, .c-alerts { grid-column: span 4; }
+.c-ign, .c-mode, .c-gear, .c-bl, .c-alerts { grid-column: span 4; }
 .c-lights { grid-column: span 7; }
 .c-ind { grid-column: span 5; }
 .c-tel { grid-column: 1 / -1; }
@@ -82,6 +83,20 @@ button { -webkit-user-select: none; user-select: none; }
 .seg button:first-child { border-left: 0; }
 .seg button:hover { background: var(--control); color: var(--text); }
 .seg button[aria-checked=true] { background: var(--on-bg); color: var(--on-fg); }
+.gear-prnd { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--border-strong); border-radius: 6px; background: var(--field); overflow: hidden; }
+.gear-prnd button { height: 42px; border: 0; border-left: 1px solid var(--border-strong); background: transparent; color: var(--text-2); font-weight: 700; cursor: pointer; }
+.gear-prnd button:first-child { border-left: 0; }
+.gear-prnd button:hover:not(:disabled), .gear-stepper button:hover:not(:disabled) { background: var(--control); color: var(--text); }
+.gear-prnd button[aria-pressed=true] { background: var(--amber); color: #1f0e00; }
+.gear-manual { display: grid; grid-template-columns: 1fr 1.5fr; gap: 8px; margin-top: 10px; }
+.gear-manual > .btn { height: 44px; font-weight: 700; }
+.gear-manual > .btn[aria-pressed=true] { border-color: var(--amber); color: var(--amber); }
+.gear-stepper { display: grid; grid-template-columns: 42px minmax(0, 1fr) 42px; align-items: center; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--field); overflow: hidden; }
+.gear-stepper button { height: 42px; border: 0; background: transparent; color: var(--text-2); font-size: 19px; font-weight: 700; cursor: pointer; }
+.gear-stepper button:first-child { border-right: 1px solid var(--border-strong); }
+.gear-stepper button:last-child { border-left: 1px solid var(--border-strong); }
+.gear-stepper output { color: var(--text); font: 600 18px var(--mono); text-align: center; }
+.gear-prnd button:disabled, .gear-manual button:disabled { opacity: .4; cursor: not-allowed; }
 .presets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
 .presets .btn { height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0 4px; line-height: 1.1; }
 .presets b { font-size: 15px; font-weight: 600; }
@@ -95,6 +110,7 @@ input[type=range]::-moz-range-progress { height: 6px; border-radius: 3px; backgr
 input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--text); border: 2px solid var(--bg); }
 input[type=range]:disabled { opacity: .4; cursor: not-allowed; }
 .unavailable { opacity: .45; cursor: not-allowed !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 /* Dials */
 .dial { display: block; width: 100%; max-width: 330px; margin: 0 auto; }
@@ -129,6 +145,8 @@ body[data-ign=off] .ign-flag { display: inline; }
 .blink-off .tile.flash[aria-pressed=true] svg { color: var(--lamp-off); }
 .alert-control { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--field); }
 .alert-control .name { font-size: 12.5px; font-weight: 500; }
+.alert-type-select { width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--field); }
+.alert-type-select:disabled { opacity: .45; cursor: not-allowed; }
 .alert-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; cursor: pointer; }
 .alert-toggle .track { display: block; width: 38px; height: 22px; padding: 3px; border-radius: 11px; background: var(--border-strong); transition: background .2s; }
 .alert-toggle .thumb { display: block; width: 16px; height: 16px; border-radius: 50%; background: var(--text-2); transition: transform .2s, background .2s; }
@@ -136,7 +154,7 @@ body[data-ign=off] .ign-flag { display: inline; }
 .alert-toggle[aria-checked=true] .track { background: var(--amber); }
 .alert-toggle[aria-checked=true] .thumb { transform: translateX(16px); background: #fff; }
 .alert-toggle[aria-checked=true] .st { color: var(--amber); }
-.alert-toggle[aria-disabled=true] { opacity: .45; cursor: not-allowed; }
+.alert-toggle:disabled { opacity: .45; cursor: not-allowed; }
 
 /* Telemetry drawer */
 .c-tel { padding: 0; }
@@ -238,6 +256,25 @@ td.chg { animation: chg 1.2s ease-out; }
     <div class="info" id="modeInfo">--</div>
   </section>
 
+  <section class="card c-gear">
+    <div class="card-head"><h2>Transmission</h2><span class="meta" data-tag="gear-automatic">--</span></div>
+    <div class="gear-prnd" role="group" aria-label="Transmission range">
+      <button type="button" class="gear-range" data-gear="32" data-sig="gear-automatic" aria-pressed="false">P</button>
+      <button type="button" class="gear-range" data-gear="64" data-sig="gear-automatic" aria-pressed="false">R</button>
+      <button type="button" class="gear-range" data-gear="96" data-sig="gear-automatic" aria-pressed="false">N</button>
+      <button type="button" class="gear-range" data-gear="128" data-sig="gear-automatic" aria-pressed="false">D</button>
+    </div>
+    <div class="gear-manual">
+      <button class="btn" id="gearManual" data-sig="gear-automatic" type="button" aria-pressed="false">M/S</button>
+      <div class="gear-stepper" aria-label="Sequential gear selection">
+        <button id="gearDown" data-sig="gear-automatic" type="button" aria-label="Downshift">−</button>
+        <output id="gearCurrent" aria-live="polite">D</output>
+        <button id="gearUp" data-sig="gear-automatic" type="button" aria-label="Upshift">+</button>
+      </div>
+    </div>
+    <div class="info" id="gearInfo">--</div>
+  </section>
+
   <section class="card c-bl">
     <div class="card-head"><h2>Cluster illumination</h2><span class="meta" data-tag="backlight-brightness">--</span></div>
     <div class="info" id="blInfo">--</div>
@@ -271,23 +308,11 @@ td.chg { animation: chg 1.2s ease-out; }
 
   <section class="card c-alerts">
     <div class="card-head"><h2>Alerts</h2><span class="meta" data-tag="alert-type">--</span></div>
-    <div class="tiles three">
-      <button class="tile alert-type" data-sig="alert-type" data-value="15" type="button" aria-pressed="false" style="--c: var(--amber)">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4.5a1 1 0 0 1 .8-1l11-2.2a1 1 0 0 1 1.2 1V21M5 21l11-2.2M5 21h14M18 5l3 2v12l-3 2M14.5 12h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span class="name">Door open</span><span class="st">SELECT</span>
-      </button>
-      <button class="tile alert-type" data-sig="alert-type" data-value="215" type="button" aria-pressed="false" style="--c: var(--blue)">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m12 5.5 7 12H5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 9v4.5M12 16.2v.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span class="name">DSC</span><span class="st">SELECT</span>
-      </button>
-      <button class="tile alert-type hazard" data-sig="alert-type" data-value="34" type="button" aria-pressed="false">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16H12.01M12 11V13M14 8V5M11 5H17M6 12H3M3 9V15M21 11V19M6 8V16H8L10 19H18V10L16 8H6Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span class="name">Check engine</span><span class="st">SELECT</span>
-      </button>
-    </div>
+    <label class="sr-only" for="alertType">Alert type</label>
+    <select class="alert-type-select" id="alertType" data-sig="alert-type"></select>
     <div class="alert-control">
       <span class="name">Alert state</span>
-      <button class="alert-toggle" id="alertToggle" data-sig="alert-value" type="button" role="switch" aria-label="Alert state" aria-checked="false">
+      <button class="alert-toggle" id="alertToggle" data-sig="alert-value" type="button" role="switch" aria-label="Alert state" aria-checked="false" disabled>
         <span class="track" aria-hidden="true"><span class="thumb"></span></span><span class="st">OFF</span>
       </button>
     </div>
@@ -334,8 +359,10 @@ td.chg { animation: chg 1.2s ease-out; }
 
 const SPEED = 'speed-value';
 const RPM = 'rpm-value';
+const CALCULATED_GEAR = 'rpm-calculated-gear';
 const IGNITION = 'ignition-state';
 const DRIVE = 'drive-mode-state';
+const GEAR = 'gear-automatic';
 const BACKLIGHT = 'backlight-brightness';
 const BLINK_L = 'blinker-left';
 const BLINK_R = 'blinker-right';
@@ -344,32 +371,45 @@ const ALERT_VALUE = 'alert-value';
 
 const SPEED_RAW_PER_KMH = 64.01;
 const SPEED_MAX = 260;
-const RPM_MAX = 8000;
+const RPM_MAX = 6900;
 const RPM_RAW_MAX = 0x2B;
 const RPM_RED = 6500;
 const SPEED_PRESETS = [{ value: 0, caption: 'Stop' }, { value: 50, caption: 'City' }, { value: 90, caption: 'Road' }, { value: 140, caption: 'Highway' }];
 const RPM_PRESETS = [{ value: 0, caption: 'Off' }, { value: 800, caption: 'Idle' }, { value: 3000, caption: 'Cruise' }, { value: 6500, caption: 'Redline' }];
 const IGN_OFF = 0x08;
-const IGN_ACC = 0x85;
 const IGN_ON = 0x8A;
 const IGNITION_STATES = [
   { value: IGN_OFF, label: 'OFF', bg: '#3a4150', fg: '#ffffff' },
-  { value: IGN_ACC, label: 'ACC', bg: '#1b64ff', fg: '#ffffff' },
   { value: IGN_ON, label: 'ON', bg: '#22c55e', fg: '#06210f' },
 ];
 const MODES = [
+  { value: 1, label: 'Traction', bg: '#0ea5e9', fg: '#ffffff' },
   { value: 2, label: 'Comfort', bg: '#3a4150', fg: '#ffffff' },
   { value: 4, label: 'Sport', bg: '#ff7500', fg: '#1f0e00' },
   { value: 5, label: 'Sport+', bg: '#ef4444', fg: '#ffffff' },
+  { value: 6, label: 'DSC OFF', bg: '#7f1d1d', fg: '#ffffff' },
+  { value: 7, label: 'ECO PRO', bg: '#16a34a', fg: '#ffffff' },
 ];
+const GEAR_P = 0x20;
+const GEAR_R = 0x40;
+const GEAR_N = 0x60;
+const GEAR_D = 0x80;
+const GEAR_DS = 0x81;
+const GEAR_LABELS = { [GEAR_P]: 'P', [GEAR_R]: 'R', [GEAR_N]: 'N', [GEAR_D]: 'D' };
 const ALERT_OFF = 0x28;
 const ALERT_ON = 0x29;
 const ALERT_TYPES = [
   { value: 0x0F, label: 'Door open' },
-  { value: 0xD7, label: 'DSC' },
+  { value: 0x18, label: 'Parking brake - Yellow' },
+  { value: 0x47, label: 'Parking brake - Red' },
   { value: 0x22, label: 'Check engine' },
+  { value: 0x24, label: 'DSC OFF' },
+  { value: 0x23, label: 'DSC 1' },
+  { value: 0xD7, label: 'DSC 2' },
+  { value: 0x4D, label: 'Seatbelt' },
 ];
-const alertStates = [ALERT_OFF, ALERT_OFF, ALERT_OFF];
+const DEFAULT_ALERT_TYPE = 0x22;
+const alertStates = new Map(ALERT_TYPES.map(alert => [alert.value, ALERT_OFF]));
 const LAMP_L = '<path d="M13 5.5c4.4 0 8 2.9 8 6.5s-3.6 6.5-8 6.5z" fill="currentColor"/>';
 const LAMP_R = '<path d="M11 5.5c-4.4 0-8 2.9-8 6.5s3.6 6.5 8 6.5z" fill="currentColor"/>';
 const beams = d => `<path d="${d}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`;
@@ -380,7 +420,7 @@ const LAMPS = [
   { sig: 'front-fog', label: 'Front fog', status: 'FRONT FOG', color: 'var(--green)', icon: LAMP_L + beams('M10 8L3 10M10 12L3 14M10 16L3 18') + wave(6.5) },
   { sig: 'rear-fog', label: 'Rear fog', status: 'REAR FOG', color: 'var(--amber)', icon: LAMP_R + beams('M14 8h7M14 12h7M14 16h7') + wave(17.5) },
 ];
-const LABELS = { [SPEED]: 'Speed', [RPM]: 'RPM', [IGNITION]: 'Ignition', [DRIVE]: 'Drive mode', [BACKLIGHT]: 'Illumination', [BLINK_L]: 'Turn indicators', [BLINK_R]: 'Turn indicators', [ALERT_TYPE]: 'Alert type', [ALERT_VALUE]: 'Alert state' };
+const LABELS = { [SPEED]: 'Speed', [RPM]: 'RPM', [CALCULATED_GEAR]: 'Calculated gear', [IGNITION]: 'Ignition', [DRIVE]: 'Drive mode', [GEAR]: 'Transmission gear', [BACKLIGHT]: 'Illumination', [BLINK_L]: 'Turn indicators', [BLINK_R]: 'Turn indicators', [ALERT_TYPE]: 'Alert type', [ALERT_VALUE]: 'Alert state' };
 LAMPS.forEach(l => { LABELS[l.sig] = l.label; });
 // From docs/F30-can-ids.md
 const KNOWN_IDS = {
@@ -856,7 +896,16 @@ views[SPEED] = v => {
 const rpmInput = $('#rpm');
 const rpmToRaw = rpm => Math.round(Math.min(Math.max(rpm, 0), RPM_MAX) / RPM_MAX * RPM_RAW_MAX);
 const rawToRpm = raw => Math.round(Math.min(Math.max(raw, 0), RPM_RAW_MAX) / RPM_RAW_MAX * RPM_MAX);
-const setRpm = rpm => setSignal(RPM, fromRaw(RPM, rpmToRaw(rpm)));
+function calculatedGearFor(gear) {
+  if (gear === GEAR_DS) return manualGear + 4;
+  if (gear === GEAR_R) return 2;
+  if (gear === GEAR_N) return 1;
+  return 0;
+}
+const setRpm = rpm => {
+  if (!setSignal(RPM, fromRaw(RPM, rpmToRaw(rpm)))) return;
+  setSignal(CALCULATED_GEAR, fromRaw(CALCULATED_GEAR, calculatedGearFor(rawOf(GEAR, GEAR_D))));
+};
 const rpmDial = makeDial($('#rpmDial'), { max: RPM_MAX, minor: 500, major: 1000, label: v => v / 1000, redFrom: RPM_RED, unit: 'rpm', onDrag: setRpm });
 buildPresets($('#rpmPresets'), RPM_PRESETS, 'rpm', setRpm);
 rpmInput.addEventListener('input', () => setRpm(+rpmInput.value));
@@ -912,7 +961,7 @@ views[IGNITION] = v => {
   const raw = toRaw(IGNITION, v);
   const st = IGNITION_STATES.find(s => s.value === raw);
   checkSeg(ignSeg, raw);
-  document.body.dataset.ign = raw === IGN_OFF ? 'off' : raw === IGN_ACC ? 'acc' : raw === IGN_ON ? 'on' : 'other';
+  document.body.dataset.ign = raw === IGN_OFF ? 'off' : raw === IGN_ON ? 'on' : 'other';
   $('#ignInfo').textContent = `${st ? st.label : 'UNKNOWN'} · ${hex(raw)}`;
 };
 
@@ -926,46 +975,101 @@ views[DRIVE] = v => {
 };
 
 //
+// Transmission: P/R/N/D are direct selections; M/S enables one-step sequential shifts.
+//
+const gearRanges = $$('.gear-range');
+const gearManual = $('#gearManual');
+const gearDown = $('#gearDown');
+const gearUp = $('#gearUp');
+let manualGear = 1;
+function renderGear() {
+  const raw = rawOf(GEAR, GEAR_D);
+  const manual = raw === GEAR_DS;
+  const knownGear = manual || GEAR_LABELS[raw] !== undefined;
+  const available = isAvailable(GEAR);
+  for (const button of gearRanges) {
+    const selected = +button.dataset.gear === raw;
+    button.setAttribute('aria-pressed', String(selected));
+    button.disabled = !available;
+  }
+  gearManual.setAttribute('aria-pressed', String(manual));
+  gearManual.disabled = !available || (!manual && raw !== GEAR_D);
+  gearDown.disabled = !available || !manual || manualGear <= 1;
+  gearUp.disabled = !available || !manual || manualGear >= 9;
+  $('#gearCurrent').textContent = knownGear ? manual ? String(manualGear) : GEAR_LABELS[raw] : '—';
+  $('#gearInfo').textContent = available
+    ? `${manual ? `M/S · gear ${manualGear}` : knownGear ? GEAR_LABELS[raw] : 'Unknown'} · ${hex(raw)}`
+    : 'not scheduled';
+}
+for (const button of gearRanges) {
+  button.onclick = () => setSignal(GEAR, fromRaw(GEAR, +button.dataset.gear));
+}
+function setManualGear(gear) {
+  if (!setSignal(GEAR, fromRaw(GEAR, GEAR_DS))) return;
+  manualGear = gear;
+  renderGear();
+}
+gearManual.onclick = () => {
+  const raw = rawOf(GEAR, GEAR_D);
+  if (raw === GEAR_D) setManualGear(1);
+  else if (raw === GEAR_DS) setSignal(GEAR, fromRaw(GEAR, GEAR_D));
+};
+gearDown.onclick = () => {
+  if (rawOf(GEAR, GEAR_D) === GEAR_DS && manualGear > 1) setManualGear(manualGear - 1);
+};
+gearUp.onclick = () => {
+  if (rawOf(GEAR, GEAR_D) === GEAR_DS && manualGear < 9) setManualGear(manualGear + 1);
+};
+views[GEAR] = renderGear;
+renderGear();
+
+//
 // Cluster alerts: choose a message type, then set its boolean value.
 //
-const alertButtons = $$('.alert-type');
-const alertToggle = $('#alertToggle');
-for (const button of alertButtons) {
-  button.onclick = () => {
-    const type = +button.dataset.value;
-    const index = ALERT_TYPES.findIndex(alert => alert.value === type);
-    setSignal(ALERT_TYPE, fromRaw(ALERT_TYPE, type));
-    setSignal(ALERT_VALUE, fromRaw(ALERT_VALUE, alertStates[index]));
-  };
+const alertTypeSelect = $('#alertType');
+for (const alert of ALERT_TYPES) {
+  const option = document.createElement('option');
+  option.value = alert.value;
+  option.textContent = `${alert.label} · ${hex(alert.value)}`;
+  alertTypeSelect.append(option);
 }
+const alertToggle = $('#alertToggle');
+alertTypeSelect.addEventListener('change', () => {
+  const type = Number(alertTypeSelect.value);
+  if (!setSignal(ALERT_TYPE, fromRaw(ALERT_TYPE, type))) return;
+  setSignal(ALERT_VALUE, fromRaw(ALERT_VALUE, alertStates.get(type) ?? ALERT_OFF));
+});
 alertToggle.onclick = () => {
-  const type = rawOf(ALERT_TYPE, ALERT_TYPES[2].value);
-  const index = ALERT_TYPES.findIndex(alert => alert.value === type);
-  setSignal(ALERT_VALUE, fromRaw(ALERT_VALUE, alertStates[index] === ALERT_ON ? ALERT_OFF : ALERT_ON));
+  const type = rawOf(ALERT_TYPE, DEFAULT_ALERT_TYPE);
+  const value = alertStates.get(type) ?? rawOf(ALERT_VALUE, ALERT_OFF);
+  setSignal(ALERT_VALUE, fromRaw(ALERT_VALUE, value === ALERT_ON ? ALERT_OFF : ALERT_ON));
 };
 function renderAlerts() {
   const typeAvailable = isAvailable(ALERT_TYPE);
   const valueAvailable = isAvailable(ALERT_VALUE);
-  const type = rawOf(ALERT_TYPE, ALERT_TYPES[2].value);
+  const type = rawOf(ALERT_TYPE, DEFAULT_ALERT_TYPE);
   const alert = ALERT_TYPES.find(item => item.value === type);
-  const index = ALERT_TYPES.findIndex(item => item.value === type);
-  const value = alertStates[index];
-  const on = value === ALERT_ON;
-  for (const button of alertButtons) {
-    const selected = typeAvailable && +button.dataset.value === type;
-    button.setAttribute('aria-pressed', String(selected));
-    button.querySelector('.st').textContent = !typeAvailable ? 'not scheduled' : selected ? 'SELECTED' : 'SELECT';
+  if (!Array.from(alertTypeSelect.options).some(option => Number(option.value) === type)) {
+    const option = document.createElement('option');
+    option.value = type;
+    option.textContent = `Unknown alert · ${hex(type)}`;
+    alertTypeSelect.append(option);
   }
-  alertToggle.setAttribute('aria-checked', String(valueAvailable && on));
-  alertToggle.querySelector('.st').textContent = valueAvailable ? (on ? 'ON' : 'OFF') : 'not scheduled';
+  alertTypeSelect.value = String(type);
+  alertTypeSelect.disabled = !typeAvailable;
+  const value = alertStates.get(type) ?? rawOf(ALERT_VALUE, ALERT_OFF);
+  const on = value === ALERT_ON;
+  alertToggle.disabled = !typeAvailable || !valueAvailable;
+  alertToggle.setAttribute('aria-checked', String(typeAvailable && valueAvailable && on));
+  alertToggle.querySelector('.st').textContent = typeAvailable && valueAvailable ? (on ? 'ON' : 'OFF') : 'not scheduled';
   $('#alertInfo').textContent = typeAvailable && valueAvailable
     ? `${alert ? alert.label : 'Unknown alert'} · ${on ? 'ON' : 'OFF'} · ${hex(value)}`
     : 'not scheduled';
 }
 views[ALERT_TYPE] = renderAlerts;
 views[ALERT_VALUE] = v => {
-  const index = ALERT_TYPES.findIndex(alert => alert.value === rawOf(ALERT_TYPE, ALERT_TYPES[2].value));
-  if (index >= 0) alertStates[index] = toRaw(ALERT_VALUE, v) === ALERT_ON ? ALERT_ON : ALERT_OFF;
+  const type = rawOf(ALERT_TYPE, DEFAULT_ALERT_TYPE);
+  alertStates.set(type, toRaw(ALERT_VALUE, v) === ALERT_ON ? ALERT_ON : ALERT_OFF);
   renderAlerts();
 };
 renderAlerts();

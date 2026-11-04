@@ -161,8 +161,13 @@ static DBCSignal dbc_sig_blinkers_right = {
  *
  * Alert types:
  *     0x0F: Door open
- *     0xD7: DSC
+ *     0x18: Parking brake - Yellow
+ *     0x47: Parking brake - Red
  *     0x22: Check engine
+ *     0x24: DSC OFF
+ *     0x23: DSC 1
+ *     0xD7: DSC 2
+ *     0x4D: Seatbelt
  * Alert values:
  *     0x29: True
  *     0x28: False
@@ -187,17 +192,18 @@ static DBCSignal dbc_sig_alerts_value = {
  * 
  * Gears:
  *     0x01 - 0x09: 1-9
- *     0x0A: P
- *     0x0B: R
- *     0x0C: N
- *     0x0D: D
+ *     0x20: P
+ *     0x40: R
+ *     0x60: N
+ *     0x80: D
+ *     0x81: DS
  */
 static DBCSignal dbc_sig_gear_automatic = {
     .name = "gear-automatic",
     .start_bit = 8,
     .bit_length = 8,
     .factor = 1.0,
-    .value = 0x0D, // D
+    .value = 0x20, // P
 };
 
 /*
