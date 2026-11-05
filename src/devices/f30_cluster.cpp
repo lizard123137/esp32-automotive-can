@@ -21,7 +21,7 @@ static Timer timer_slow(500);
 //
 static DBCMessage dbc_message_speed("Speed", 0x1A1, 4);
 static DBCMessage dbc_message_rpm("RPM", 0x0F3, 7);
-static DBCMessage dbc_message_drivemode("Drive Mode", 0x3A7, 7);
+static DBCMessage dbc_message_drivemode("Drive Mode", 0x3A7, 6);
 static DBCMessage dbc_message_backlight("Backlight Brightness", 0x202, 2);
 static DBCMessage dbc_message_ignition("Ignition Status", 0x12F, 7);
 static DBCMessage dbc_message_lights("Lights", 0x21A, 3);
@@ -29,6 +29,8 @@ static DBCMessage dbc_message_blinkers("Blinkers", 0x1F6, 2);
 static DBCMessage dbc_message_alerts("Alerts", 0x5C0, 8);
 static DBCMessage dbc_message_gear_automatic("Gear Automatic", 0x3FD, 4);
 static DBCMessage dbc_message_fuel_level("Fuel Level", 0x349, 5);
+static DBCMessage dbc_message_handbrake("Handbrake Status", 0x36F, 4);
+static DBCMessage dbc_message_steering_wheel_buttons("Steering Wheel Buttons", 0x1EE, 2);
 
 // OK status messages
 static DBCMessage dbc_message_abs("ABS Status", 0x36E, 4);
@@ -84,7 +86,7 @@ static DBCSignal dbc_sig_ignition_state = {
 };
 
 // Drive mode
-static DBCSignal dbc_sig_drive_mode_state {
+static DBCSignal dbc_sig_drive_mode_state = {
     .name = "drive-mode-state",
     .start_bit = 24,
     .bit_length = 8,
@@ -147,6 +149,28 @@ static DBCSignal dbc_sig_blinkers_right = {
     .bit_length = 1,
     .factor = 1.0,
     .value = 0,
+};
+
+// Parking brake
+// 0x15 - Engaged
+// 0x14 - Not engaged
+static DBCSignal dbc_sig_handbrake = {
+    .name = "handbrake",
+    .start_bit = 24,
+    .bit_length = 8,
+    .factor = 1.0,
+    .value = 0x14, // not engaged
+};
+
+// Steering wheel buttons
+// byte 0 is the button signal
+// 0x4C for something???
+static DBCSignal dbc_sig_steering_wheel_buttons = {
+    .name = "steering-wheel-buttons",
+    .start_bit = 0,
+    .bit_length = 8,
+    .factor = 1.0,
+    .value = 0x00, // No buttons pressed
 };
 
 /**
@@ -264,13 +288,6 @@ Scheduler& init_scheduler_f30_cluster() {
     dbc_message_drivemode.crc_func = getCrc8;
     dbc_message_drivemode.final_xor = 0x4A;
 
-    dbc_message_backlight.default_payload = { 0xFF, 0xFF };
-    
-    dbc_message_lights.default_payload = { 0x00, 0xC0, 0xF7 };
-    dbc_message_blinkers.default_payload = { 0x81, 0xF0 };
-
-    dbc_message_alerts.default_payload = { 0x40, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF };
-
     dbc_message_alive.counter = &counter_alive;
     dbc_message_alive.default_payload = { 0x00, 0xFF };
 
@@ -309,7 +326,16 @@ Scheduler& init_scheduler_f30_cluster() {
     dbc_message_gear_automatic.crc_func = getCrc8;
     dbc_message_gear_automatic.final_xor = 0xD6;
 
+    dbc_message_handbrake.counter = &counter_4bit;
+    dbc_message_handbrake.default_payload = { 0xF0, 0x38, 0x00, 0x00 };
+    dbc_message_handbrake.crc_func = getCrc8;
+    dbc_message_handbrake.final_xor = 0x17;
+
     dbc_message_fuel_level.default_payload = { 0x00, 0x00, 0x00, 0x00, 0x00 };
+    dbc_message_backlight.default_payload = { 0xFF, 0xFF };
+    dbc_message_lights.default_payload = { 0x00, 0xC0, 0xF7 };
+    dbc_message_blinkers.default_payload = { 0x81, 0xF0 };
+    dbc_message_alerts.default_payload = { 0x40, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF };
 
     //
     // Signals
@@ -336,6 +362,10 @@ Scheduler& init_scheduler_f30_cluster() {
     dbc_message_alerts.signals.push_back(dbc_sig_alerts_type);
     dbc_message_alerts.signals.push_back(dbc_sig_alerts_value);
 
+    dbc_message_handbrake.signals.push_back(dbc_sig_handbrake);
+
+    dbc_message_steering_wheel_buttons.signals.push_back(dbc_sig_steering_wheel_buttons);
+
     dbc_message_gear_automatic.signals.push_back(dbc_sig_gear_automatic);
 
     dbc_message_fuel_level.signals.push_back(dbc_sig_fuel_level);
@@ -357,6 +387,8 @@ Scheduler& init_scheduler_f30_cluster() {
     timer_mid.messages.push_back(&dbc_message_tpms);
     timer_mid.messages.push_back(&dbc_message_gear_automatic);
     timer_mid.messages.push_back(&dbc_message_fuel_level);
+    timer_mid.messages.push_back(&dbc_message_handbrake);
+    timer_mid.messages.push_back(&dbc_message_steering_wheel_buttons);
 
     timer_slow.messages.push_back(&dbc_message_drivemode);
     timer_slow.messages.push_back(&dbc_message_blinkers);

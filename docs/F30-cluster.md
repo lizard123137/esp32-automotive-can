@@ -28,7 +28,6 @@ As a side note the gauge cluster seems to be called `KOMBI` in the `dbc` files.
 
 The gauge cluster seems to also be sending some packets:
 
-
 #### `0x1B3`
 ```
 0x1B3    8    FC F6 01 F6 56 FF 82 79

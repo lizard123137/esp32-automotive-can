@@ -60,7 +60,7 @@ button { -webkit-user-select: none; user-select: none; }
 /* Layout */
 .grid { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; grid-template-columns: repeat(12, minmax(0, 1fr)); }
 .c-speed, .c-rpm { grid-column: span 6; }
-.c-ign, .c-mode, .c-gear, .c-bl, .c-alerts { grid-column: span 4; }
+.c-ign, .c-mode, .c-gear, .c-bl, .c-alerts, .c-handbrake, .c-wheel { grid-column: span 4; }
 .c-lights { grid-column: span 7; }
 .c-ind { grid-column: span 5; }
 .c-tel { grid-column: 1 / -1; }
@@ -109,6 +109,10 @@ input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; backgroun
 input[type=range]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--amber); }
 input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--text); border: 2px solid var(--bg); }
 input[type=range]:disabled { opacity: .4; cursor: not-allowed; }
+.byte-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; margin-top: 10px; }
+.byte-control label { grid-column: 1 / -1; font-size: 12.5px; color: var(--text-2); }
+.byte-control input { min-width: 0; width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--field); }
+.byte-control input:disabled { opacity: .4; cursor: not-allowed; }
 .unavailable { opacity: .45; cursor: not-allowed !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
@@ -190,7 +194,7 @@ td.chg { animation: chg 1.2s ease-out; }
 
 @media (max-width: 1000px) {
   .c-ign, .c-mode { grid-column: span 6; }
-  .c-bl, .c-lights, .c-ind, .c-alerts { grid-column: 1 / -1; }
+  .c-bl, .c-lights, .c-ind, .c-alerts, .c-handbrake, .c-wheel { grid-column: 1 / -1; }
   .mon { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
@@ -278,7 +282,7 @@ td.chg { animation: chg 1.2s ease-out; }
   <section class="card c-bl">
     <div class="card-head"><h2>Cluster illumination</h2><span class="meta" data-tag="backlight-brightness">--</span></div>
     <div class="info" id="blInfo">--</div>
-    <input type="range" id="backlight" data-sig="backlight-brightness" min="0" max="255" step="1" value="0" aria-label="Cluster illumination">
+    <input type="range" id="backlight" data-sig="backlight-brightness" min="0" max="253" step="1" value="0" aria-label="Cluster illumination">
   </section>
 
   <section class="card c-lights">
@@ -310,6 +314,11 @@ td.chg { animation: chg 1.2s ease-out; }
     <div class="card-head"><h2>Alerts</h2><span class="meta" data-tag="alert-type">--</span></div>
     <label class="sr-only" for="alertType">Alert type</label>
     <select class="alert-type-select" id="alertType" data-sig="alert-type"></select>
+    <div class="byte-control">
+      <label for="alertTypeByte">Custom alert type byte (hex, 0x00-0xFF)</label>
+      <input type="text" id="alertTypeByte" data-sig="alert-type" value="0x22" placeholder="0x00" inputmode="text" spellcheck="false">
+      <button class="btn btn-sm" id="applyAlertTypeByte" type="button">Apply byte</button>
+    </div>
     <div class="alert-control">
       <span class="name">Alert state</span>
       <button class="alert-toggle" id="alertToggle" data-sig="alert-value" type="button" role="switch" aria-label="Alert state" aria-checked="false" disabled>
@@ -317,6 +326,25 @@ td.chg { animation: chg 1.2s ease-out; }
       </button>
     </div>
     <div class="info" id="alertInfo">--</div>
+  </section>
+
+  <section class="card c-handbrake">
+    <div class="card-head"><h2>Parking brake</h2><span class="meta" data-tag="handbrake">--</span></div>
+    <label class="alert-control">
+      <span class="name">Handbrake engaged</span>
+      <input type="checkbox" id="handbrakeInput" data-sig="handbrake" aria-label="Handbrake engaged">
+    </label>
+    <div class="info" id="handbrakeInfo">--</div>
+  </section>
+
+  <section class="card c-wheel">
+    <div class="card-head"><h2>Steering wheel buttons</h2><span class="meta" data-tag="steering-wheel-buttons">--</span></div>
+    <div class="byte-control">
+      <label for="wheelButtonByte">Button state byte (hex, 0x00-0xFF)</label>
+      <input type="text" id="wheelButtonByte" data-sig="steering-wheel-buttons" value="0x00" placeholder="0x00" inputmode="text" spellcheck="false">
+      <button class="btn btn-sm" id="applyWheelButtonByte" type="button">Apply byte</button>
+    </div>
+    <div class="info" id="wheelButtonInfo">--</div>
   </section>
 
   <section class="card c-tel">
@@ -368,6 +396,8 @@ const BLINK_L = 'blinker-left';
 const BLINK_R = 'blinker-right';
 const ALERT_TYPE = 'alert-type';
 const ALERT_VALUE = 'alert-value';
+const HANDBRAKE = 'handbrake';
+const WHEEL_BUTTONS = 'steering-wheel-buttons';
 
 const SPEED_RAW_PER_KMH = 64.01;
 const SPEED_MAX = 260;
@@ -398,15 +428,37 @@ const GEAR_DS = 0x81;
 const GEAR_LABELS = { [GEAR_P]: 'P', [GEAR_R]: 'R', [GEAR_N]: 'N', [GEAR_D]: 'D' };
 const ALERT_OFF = 0x28;
 const ALERT_ON = 0x29;
+const HANDBRAKE_RELEASED = 0x14;
+const HANDBRAKE_ENGAGED = 0x15;
 const ALERT_TYPES = [
-  { value: 0x0F, label: 'Door open' },
+  { value: 0x0E, label: 'Door open FR' },
+  { value: 0x0F, label: 'Door open FL' },
+  { value: 0x10, label: 'Door open RL' },
+  { value: 0x11, label: 'Door open RR' },
+  { value: 0x12, label: 'Hood open' },
+  { value: 0x13, label: 'Trunk open' },
   { value: 0x18, label: 'Parking brake - Yellow' },
-  { value: 0x47, label: 'Parking brake - Red' },
+  { value: 0x1B, label: 'Low oil - White' },
+  { value: 0x1C, label: 'Low oil - Orange' },
+  { value: 0x20, label: 'Fuel cap open' },
   { value: 0x22, label: 'Check engine' },
-  { value: 0x24, label: 'DSC OFF' },
   { value: 0x23, label: 'DSC 1' },
-  { value: 0xD7, label: 'DSC 2' },
+  { value: 0x24, label: 'DSC OFF' },
+  { value: 0x27, label: 'Engine overheat - Red' },
+  { value: 0x3E, label: 'Speeding - Red' },
+  { value: 0x47, label: 'Parking brake - Red' },
   { value: 0x4D, label: 'Seatbelt' },
+  { value: 0x4E, label: 'Speeding - Yellow' },
+  { value: 0x58, label: 'Driving Light FL' },
+  { value: 0x59, label: 'Driving Light FR' },
+  { value: 0x67, label: 'Gearbox overheat - Yellow' },
+  { value: 0x68, label: 'Gearbox overheat - Red' },
+  { value: 0x69, label: 'Clutch overheat - Red' },
+  { value: 0x74, label: 'Turn signal RL' },
+  { value: 0x77, label: 'Turn signal FR' },
+  { value: 0x7a, label: 'Turn signal FL' },
+  { value: 0x7d, label: 'Turn signal RR' },
+  { value: 0xD7, label: 'DSC 2' },
 ];
 const DEFAULT_ALERT_TYPE = 0x22;
 const alertStates = new Map(ALERT_TYPES.map(alert => [alert.value, ALERT_OFF]));
@@ -420,7 +472,7 @@ const LAMPS = [
   { sig: 'front-fog', label: 'Front fog', status: 'FRONT FOG', color: 'var(--green)', icon: LAMP_L + beams('M10 8L3 10M10 12L3 14M10 16L3 18') + wave(6.5) },
   { sig: 'rear-fog', label: 'Rear fog', status: 'REAR FOG', color: 'var(--amber)', icon: LAMP_R + beams('M14 8h7M14 12h7M14 16h7') + wave(17.5) },
 ];
-const LABELS = { [SPEED]: 'Speed', [RPM]: 'RPM', [CALCULATED_GEAR]: 'Calculated gear', [IGNITION]: 'Ignition', [DRIVE]: 'Drive mode', [GEAR]: 'Transmission gear', [BACKLIGHT]: 'Illumination', [BLINK_L]: 'Turn indicators', [BLINK_R]: 'Turn indicators', [ALERT_TYPE]: 'Alert type', [ALERT_VALUE]: 'Alert state' };
+const LABELS = { [SPEED]: 'Speed', [RPM]: 'RPM', [CALCULATED_GEAR]: 'Calculated gear', [IGNITION]: 'Ignition', [DRIVE]: 'Drive mode', [GEAR]: 'Transmission gear', [BACKLIGHT]: 'Illumination', [BLINK_L]: 'Turn indicators', [BLINK_R]: 'Turn indicators', [ALERT_TYPE]: 'Alert type', [ALERT_VALUE]: 'Alert state', [HANDBRAKE]: 'Parking brake', [WHEEL_BUTTONS]: 'Steering wheel buttons' };
 LAMPS.forEach(l => { LABELS[l.sig] = l.label; });
 // From docs/F30-can-ids.md
 const KNOWN_IDS = {
@@ -534,6 +586,19 @@ function setSignal(name, value) {
   render(name, value);
   queueSend(name, value);
   return true;
+}
+
+function applyByteInput(input, signal) {
+  const text = input.value.trim();
+  const digits = text.replace(/^0x/i, '');
+  if (!/^[\da-f]{1,2}$/i.test(digits)) {
+    input.setCustomValidity('Enter a hexadecimal byte from 00 to FF (0x prefix optional).');
+    input.reportValidity();
+    return;
+  }
+  input.setCustomValidity('');
+  const value = Number.parseInt(digits, 16);
+  setSignal(signal, fromRaw(signal, value));
 }
 
 function setFill(input) {
@@ -1033,6 +1098,10 @@ for (const alert of ALERT_TYPES) {
   option.textContent = `${alert.label} · ${hex(alert.value)}`;
   alertTypeSelect.append(option);
 }
+const alertTypeByte = $('#alertTypeByte');
+const applyAlertTypeByte = $('#applyAlertTypeByte');
+alertTypeByte.addEventListener('input', () => alertTypeByte.setCustomValidity(''));
+applyAlertTypeByte.onclick = () => applyByteInput(alertTypeByte, ALERT_TYPE);
 const alertToggle = $('#alertToggle');
 alertTypeSelect.addEventListener('change', () => {
   const type = Number(alertTypeSelect.value);
@@ -1057,6 +1126,9 @@ function renderAlerts() {
   }
   alertTypeSelect.value = String(type);
   alertTypeSelect.disabled = !typeAvailable;
+  if (document.activeElement !== alertTypeByte) alertTypeByte.value = hex(type);
+  alertTypeByte.disabled = !typeAvailable;
+  applyAlertTypeByte.disabled = !typeAvailable;
   const value = alertStates.get(type) ?? rawOf(ALERT_VALUE, ALERT_OFF);
   const on = value === ALERT_ON;
   alertToggle.disabled = !typeAvailable || !valueAvailable;
@@ -1073,6 +1145,35 @@ views[ALERT_VALUE] = v => {
   renderAlerts();
 };
 renderAlerts();
+
+//
+// Parking brake status
+//
+const handbrakeInput = $('#handbrakeInput');
+handbrakeInput.addEventListener('change', () => {
+  setSignal(HANDBRAKE, fromRaw(HANDBRAKE, handbrakeInput.checked ? HANDBRAKE_ENGAGED : HANDBRAKE_RELEASED));
+});
+views[HANDBRAKE] = value => {
+  const engaged = toRaw(HANDBRAKE, value) === HANDBRAKE_ENGAGED;
+  handbrakeInput.checked = engaged;
+  $('#handbrakeInfo').textContent = `${engaged ? 'ENGAGED' : 'RELEASED'} · ${hex(toRaw(HANDBRAKE, value))}`;
+};
+
+//
+// Steering wheel button state
+//
+const wheelButtonByte = $('#wheelButtonByte');
+const applyWheelButtonByte = $('#applyWheelButtonByte');
+wheelButtonByte.addEventListener('input', () => wheelButtonByte.setCustomValidity(''));
+applyWheelButtonByte.onclick = () => applyByteInput(wheelButtonByte, WHEEL_BUTTONS);
+views[WHEEL_BUTTONS] = value => {
+  const raw = toRaw(WHEEL_BUTTONS, value);
+  if (document.activeElement !== wheelButtonByte) wheelButtonByte.value = hex(raw);
+  const available = isAvailable(WHEEL_BUTTONS);
+  wheelButtonByte.disabled = !available;
+  applyWheelButtonByte.disabled = !available;
+  $('#wheelButtonInfo').textContent = available ? `Button state · ${hex(raw)}` : 'not scheduled';
+};
 
 //
 // Cluster illumination
