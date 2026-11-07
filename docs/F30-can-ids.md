@@ -25,3 +25,7 @@ The IDs used by the f30 gauge cluster are:
 - `0x3FD` - Gear
 - `0x5C0` - Alerts
 - TODO distance traveled
+
+In the F30 there is a module called `Getriebe-Wahl-Schalter (GWS)` that is responsible for shifting gears. The module communication is described [here](https://openinverter.org/wiki/BMW_F-Series_Gear_Lever).
+
+It's also apparently required for steady RPM to send the oil state?

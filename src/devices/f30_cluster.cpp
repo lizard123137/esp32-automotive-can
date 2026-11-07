@@ -31,6 +31,8 @@ static DBCMessage dbc_message_gear_automatic("Gear Automatic", 0x3FD, 4);
 static DBCMessage dbc_message_fuel_level("Fuel Level", 0x349, 5);
 static DBCMessage dbc_message_handbrake("Handbrake Status", 0x36F, 4);
 static DBCMessage dbc_message_steering_wheel_buttons("Steering Wheel Buttons", 0x1EE, 2);
+static DBCMessage dbc_message_oil("Oil Status", 0x3F9, 7);
+static DBCMessage dbc_message_engine_temp("Engine Temp", 0x2C4, 7);
 
 // OK status messages
 static DBCMessage dbc_message_abs("ABS Status", 0x36E, 4);
@@ -53,7 +55,7 @@ static DBCSignal dbc_sig_speed_value = {
     .bit_length = 24,
     .factor = 1.0,
     .offset = 0.0,
-    .value = 0x910C80, // TODO create separate signal for last byte (is zero)
+    .value = 0x810000, // TODO create separate signal for last byte (is zero)
 };
 
 // RPM
@@ -63,7 +65,7 @@ static DBCSignal dbc_sig_rpm_value = {
     .bit_length = 8,
     .factor = 1.0,
     .offset = 0.0,
-    .value = 0x1E, // Maps from 0x00 to 0x2B
+    .value = 0x00, // Maps from 0x00 to 0x2B
 };
 
 static DBCSignal dbc_sig_rpm_calculated_gear = {
@@ -82,17 +84,23 @@ static DBCSignal dbc_sig_ignition_state = {
     .bit_length = 8,
     .factor = 1.0,
     .offset = 0.0,
-    .value = 0x8A,
+    .value = 0x08,
 };
 
 // Drive mode
+// 1 - Traction
+// 2 - Comfort
+// 4 - Sport
+// 5 - Sport+
+// 6 - DSC off
+// 7 - ECO Pro
 static DBCSignal dbc_sig_drive_mode_state = {
     .name = "drive-mode-state",
     .start_bit = 24,
     .bit_length = 8,
     .factor = 1.0,
     .offset = 0.0,
-    .value = 5, // Sport+
+    .value = 0,
 };
 
 // Backlight
@@ -111,28 +119,28 @@ static DBCSignal dbc_sig_lights_highbeams = {
     .start_bit = 1,
     .bit_length = 1,
     .factor = 1.0,
-    .value = 1,
+    .value = 0,
 };
 static DBCSignal dbc_sig_lights_main = {
     .name = "main-lights",
     .start_bit = 2,
     .bit_length = 1,
     .factor = 1.0,
-    .value = 1,
+    .value = 0,
 };
 static DBCSignal dbc_sig_lights_ffog = {
     .name = "front-fog",
     .start_bit = 5,
     .bit_length = 1,
     .factor = 1.0,
-    .value = 1,
+    .value = 0,
 };
 static DBCSignal dbc_sig_lights_rfog = {
     .name = "rear-fog",
     .start_bit = 6,
     .bit_length = 1,
     .factor = 1.0,
-    .value = 1,
+    .value = 0,
 };
 
 // Blinkers
@@ -208,7 +216,7 @@ static DBCSignal dbc_sig_alerts_value = {
     .start_bit = 24,
     .bit_length = 8,
     .factor = 1.0,
-    .value = 0x29, // True
+    .value = 0x28, // False
 };
 
 /**
@@ -233,11 +241,14 @@ static DBCSignal dbc_sig_gear_automatic = {
 /*
  * Fuel Level is weird :/
  *
+ * Apparently on some cars the values are in Liters, but for me it's not really working...
+ * I have a theory that it's because my cluster comes from a USA import car, so it might be in gallons???
+ *
  * Fuel level is mapped in the following way:
  *
- * out0 = 37
- * out50 = 18
- * out100 = 4
+ * out0 = 37    (0x25)
+ * out50 = 18   (0x12)
+ * out100 = 4   (0x04)
  *
  * If fuel below 50%:
  *      fuel_percent mapped between out0 and out50
@@ -245,18 +256,46 @@ static DBCSignal dbc_sig_gear_automatic = {
  *      fuel_percent mapped between out50 and out100
  *
  * Final payload is:
- *    Byte 0: High byte of fuel level
+ *    Byte 0: High byte of fuel level (unused)
  *    Byte 1: Low byte of fuel level
- *    Byte 2: High byte of fuel level
+ *    Byte 2: High byte of fuel level (unused)
  *    Byte 3: Low byte of fuel level
  */
-static DBCSignal dbc_sig_fuel_level = {
-    .name = "fuel-level",
+static DBCSignal dbc_sig_fuel_level_1 = {
+    .name = "fuel-level-1",
     .start_bit = 0,
-    .bit_length = 32,
+    .bit_length = 8,
     .factor = 1.0,
     .offset = 0.0,
-    .value = 0x0F000F00,
+    .value = 0x18,
+};
+static DBCSignal dbc_sig_fuel_level_2 = {
+    .name = "fuel-level-2",
+    .start_bit = 24,
+    .bit_length = 8,
+    .factor = 1.0,
+    .offset = 0.0,
+    .value = 0x18,
+};
+
+// Oil Temperature range 0x64 - 0xC8
+static DBCSignal dbc_sig_oil_temp = {
+    .name = "oil-temp",
+    .start_bit = 32,
+    .bit_length = 8,
+    .factor = 1.0,
+    .offset = 0x32,
+    .value = 0x64,
+};
+
+// Engine Temperature range 0x64 - 0xC8
+static DBCSignal dbc_sig_engine_temp = {
+    .name = "engine-temp",
+    .start_bit = 8,
+    .bit_length = 8,
+    .factor = 1.0,
+    .offset = 0x32,
+    .value = 0x64,
 };
 
 //
@@ -321,6 +360,35 @@ Scheduler& init_scheduler_f30_cluster() {
     dbc_message_acc.crc_func = getCrc8;
     dbc_message_acc.final_xor = 0x6B;
 
+    /*
+     * According to openinverter.org there are two messages sent by GWS
+     *
+     * A status message with id 0x197 that goes like this:
+     * byte 0: CRC
+     * byte 1: Counter 4bit
+     * byte 2: Lever position
+     * byte 3: Park button pressed ? 0xD5 : 0xC0
+     *
+     * Lever position is mapped as follows:
+     * 0x2E - UP 2
+     * 0x1E - UP 1
+     * 0x0E - Center middle
+     * 0x3E - DOWN 1
+     * 0x4E - DOWN 2
+     * 0x5E - SIDE UP
+     * 0x7E - Center side
+     * 0x6E - SIDE DOWN
+     *
+     * A GWS appearence message with id 0x3FD that goes like this:
+     * byte 0: CRC
+     * byte 1: Counter 4bit
+     * byte 2: Gear 
+     * byte 3: Ignored
+     * byte 4: Ignored
+     *
+     * Where gears are mapped as in the dbc_sig_gear_automatic signal above.
+     */
+
     dbc_message_gear_automatic.counter = &counter_4bit;
     dbc_message_gear_automatic.default_payload = { 0x00, 0x00, 0xFC, 0xFF };
     dbc_message_gear_automatic.crc_func = getCrc8;
@@ -330,6 +398,16 @@ Scheduler& init_scheduler_f30_cluster() {
     dbc_message_handbrake.default_payload = { 0xF0, 0x38, 0x00, 0x00 };
     dbc_message_handbrake.crc_func = getCrc8;
     dbc_message_handbrake.final_xor = 0x17;
+
+    dbc_message_oil.counter = &counter_4bit;
+    dbc_message_oil.default_payload = { 0x10, 0x82, 0x4E, 0x7E, 0x00, 0x05, 0x89 };
+    dbc_message_oil.crc_func = getCrc8;
+    dbc_message_oil.final_xor = 0xF1;
+
+    // No counter
+    dbc_message_engine_temp.default_payload = { 0x3E, 0x00, 0x64, 0x64, 0x64, 0x01, 0xF1 };
+    dbc_message_engine_temp.crc_func = getCrc8;
+    dbc_message_engine_temp.final_xor = 0xB2;
 
     dbc_message_fuel_level.default_payload = { 0x00, 0x00, 0x00, 0x00, 0x00 };
     dbc_message_backlight.default_payload = { 0xFF, 0xFF };
@@ -368,7 +446,12 @@ Scheduler& init_scheduler_f30_cluster() {
 
     dbc_message_gear_automatic.signals.push_back(dbc_sig_gear_automatic);
 
-    dbc_message_fuel_level.signals.push_back(dbc_sig_fuel_level);
+    dbc_message_fuel_level.signals.push_back(dbc_sig_fuel_level_1);
+    dbc_message_fuel_level.signals.push_back(dbc_sig_fuel_level_2);
+
+    dbc_message_oil.signals.push_back(dbc_sig_oil_temp);
+    
+    dbc_message_engine_temp.signals.push_back(dbc_sig_engine_temp);
 
     //
     // Timers
@@ -385,6 +468,8 @@ Scheduler& init_scheduler_f30_cluster() {
     timer_mid.messages.push_back(&dbc_message_alive);
     timer_mid.messages.push_back(&dbc_message_acc);
     timer_mid.messages.push_back(&dbc_message_tpms);
+    timer_mid.messages.push_back(&dbc_message_oil);
+    timer_mid.messages.push_back(&dbc_message_engine_temp);
     timer_mid.messages.push_back(&dbc_message_gear_automatic);
     timer_mid.messages.push_back(&dbc_message_fuel_level);
     timer_mid.messages.push_back(&dbc_message_handbrake);
@@ -399,7 +484,6 @@ Scheduler& init_scheduler_f30_cluster() {
     // Counters
     //
     timer_fast.counters.push_back(&counter_4bit);
-
     timer_mid.counters.push_back(&counter_alive);
     timer_mid.counters.push_back(&counter_acc);
 

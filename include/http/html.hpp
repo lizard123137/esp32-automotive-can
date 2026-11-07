@@ -60,7 +60,7 @@ button { -webkit-user-select: none; user-select: none; }
 /* Layout */
 .grid { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; grid-template-columns: repeat(12, minmax(0, 1fr)); }
 .c-speed, .c-rpm { grid-column: span 6; }
-.c-ign, .c-mode, .c-gear, .c-bl, .c-alerts, .c-handbrake, .c-wheel { grid-column: span 4; }
+.c-ign, .c-mode, .c-gear, .c-bl, .c-alerts, .c-handbrake, .c-wheel, .c-fuel, .c-oil { grid-column: span 4; }
 .c-lights { grid-column: span 7; }
 .c-ind { grid-column: span 5; }
 .c-tel { grid-column: 1 / -1; }
@@ -194,7 +194,7 @@ td.chg { animation: chg 1.2s ease-out; }
 
 @media (max-width: 1000px) {
   .c-ign, .c-mode { grid-column: span 6; }
-  .c-bl, .c-lights, .c-ind, .c-alerts, .c-handbrake, .c-wheel { grid-column: 1 / -1; }
+  .c-bl, .c-lights, .c-ind, .c-alerts, .c-handbrake, .c-wheel, .c-fuel, .c-oil { grid-column: 1 / -1; }
   .mon { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
@@ -337,8 +337,21 @@ td.chg { animation: chg 1.2s ease-out; }
     <div class="info" id="handbrakeInfo">--</div>
   </section>
 
+  <section class="card c-fuel">
+    <div class="card-head"><h2>Fuel level</h2><span class="meta" data-tag="fuel-level-1">--</span></div>
+    <input type="range" id="fuelLevel" data-sig="fuel-level-1 fuel-level-2" min="0" max="100" step="1" value="0" aria-label="Fuel level in percent">
+    <div class="info" id="fuelLevelInfo">--</div>
+  </section>
+
+  <section class="card c-oil">
+    <div class="card-head"><h2>Engine and oil temperature</h2><span class="meta" data-tag="oil-temp">--</span><span class="meta" data-tag="engine-temp">--</span></div>
+    <input type="range" id="oilTemp" data-sig="oil-temp engine-temp" min="100" max="200" step="1" value="100" aria-label="Engine and oil temperature in degrees Celsius">
+    <div class="info" id="oilTempInfo">--</div>
+  </section>
+
   <section class="card c-wheel">
     <div class="card-head"><h2>Steering wheel buttons</h2><span class="meta" data-tag="steering-wheel-buttons">--</span></div>
+    <div class="info">Only known steering wheel button: <span class="mono">0x4C</span> (function unknown).</div>
     <div class="byte-control">
       <label for="wheelButtonByte">Button state byte (hex, 0x00-0xFF)</label>
       <input type="text" id="wheelButtonByte" data-sig="steering-wheel-buttons" value="0x00" placeholder="0x00" inputmode="text" spellcheck="false">
@@ -398,6 +411,10 @@ const ALERT_TYPE = 'alert-type';
 const ALERT_VALUE = 'alert-value';
 const HANDBRAKE = 'handbrake';
 const WHEEL_BUTTONS = 'steering-wheel-buttons';
+const FUEL_1 = 'fuel-level-1';
+const FUEL_2 = 'fuel-level-2';
+const OIL_TEMP = 'oil-temp';
+const ENGINE_TEMP = 'engine-temp';
 
 const SPEED_RAW_PER_KMH = 64.01;
 const SPEED_MAX = 260;
@@ -472,7 +489,7 @@ const LAMPS = [
   { sig: 'front-fog', label: 'Front fog', status: 'FRONT FOG', color: 'var(--green)', icon: LAMP_L + beams('M10 8L3 10M10 12L3 14M10 16L3 18') + wave(6.5) },
   { sig: 'rear-fog', label: 'Rear fog', status: 'REAR FOG', color: 'var(--amber)', icon: LAMP_R + beams('M14 8h7M14 12h7M14 16h7') + wave(17.5) },
 ];
-const LABELS = { [SPEED]: 'Speed', [RPM]: 'RPM', [CALCULATED_GEAR]: 'Calculated gear', [IGNITION]: 'Ignition', [DRIVE]: 'Drive mode', [GEAR]: 'Transmission gear', [BACKLIGHT]: 'Illumination', [BLINK_L]: 'Turn indicators', [BLINK_R]: 'Turn indicators', [ALERT_TYPE]: 'Alert type', [ALERT_VALUE]: 'Alert state', [HANDBRAKE]: 'Parking brake', [WHEEL_BUTTONS]: 'Steering wheel buttons' };
+const LABELS = { [SPEED]: 'Speed', [RPM]: 'RPM', [CALCULATED_GEAR]: 'Calculated gear', [IGNITION]: 'Ignition', [DRIVE]: 'Drive mode', [BACKLIGHT]: 'Illumination', [BLINK_L]: 'Turn indicators', [BLINK_R]: 'Turn indicators', [ALERT_TYPE]: 'Alert type', [ALERT_VALUE]: 'Alert state', [HANDBRAKE]: 'Parking brake', [WHEEL_BUTTONS]: 'Steering wheel buttons', [FUEL_1]: 'Fuel level', [FUEL_2]: 'Fuel level', [OIL_TEMP]: 'Engine oil temperature', [ENGINE_TEMP]: 'Engine temperature' };
 LAMPS.forEach(l => { LABELS[l.sig] = l.label; });
 // From docs/F30-can-ids.md
 const KNOWN_IDS = {
@@ -570,7 +587,7 @@ function render(name, value) {
 }
 
 function applySignal(name, value, fromServer) {
-  if (typeof value !== 'number' || !isFinite(value)) return;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return;
   if (fromServer && Date.now() < (holdUntil[name] || 0)) return;
   state.values[name] = value;
   render(name, value);
@@ -1063,21 +1080,25 @@ function renderGear() {
   gearUp.disabled = !available || !manual || manualGear >= 9;
   $('#gearCurrent').textContent = knownGear ? manual ? String(manualGear) : GEAR_LABELS[raw] : '—';
   $('#gearInfo').textContent = available
-    ? `${manual ? `M/S · gear ${manualGear}` : knownGear ? GEAR_LABELS[raw] : 'Unknown'} · ${hex(raw)}`
+    ? `${manual ? `M/S · gear ${manualGear}` : knownGear ? GEAR_LABELS[raw] : 'Unknown'} · ${hex(raw)} · calculated ${calculatedGearFor(raw)}`
     : 'not scheduled';
 }
+function setTransmissionGear(gear) {
+  if (!setSignal(GEAR, fromRaw(GEAR, gear))) return;
+  setSignal(CALCULATED_GEAR, fromRaw(CALCULATED_GEAR, calculatedGearFor(gear)));
+}
 for (const button of gearRanges) {
-  button.onclick = () => setSignal(GEAR, fromRaw(GEAR, +button.dataset.gear));
+  button.onclick = () => setTransmissionGear(+button.dataset.gear);
 }
 function setManualGear(gear) {
   if (!setSignal(GEAR, fromRaw(GEAR, GEAR_DS))) return;
   manualGear = gear;
-  renderGear();
+  setSignal(CALCULATED_GEAR, fromRaw(CALCULATED_GEAR, calculatedGearFor(GEAR_DS)));
 }
 gearManual.onclick = () => {
   const raw = rawOf(GEAR, GEAR_D);
   if (raw === GEAR_D) setManualGear(1);
-  else if (raw === GEAR_DS) setSignal(GEAR, fromRaw(GEAR, GEAR_D));
+  else if (raw === GEAR_DS) setTransmissionGear(GEAR_D);
 };
 gearDown.onclick = () => {
   if (rawOf(GEAR, GEAR_D) === GEAR_DS && manualGear > 1) setManualGear(manualGear - 1);
@@ -1086,6 +1107,7 @@ gearUp.onclick = () => {
   if (rawOf(GEAR, GEAR_D) === GEAR_DS && manualGear < 9) setManualGear(manualGear + 1);
 };
 views[GEAR] = renderGear;
+views[CALCULATED_GEAR] = renderGear;
 renderGear();
 
 //
@@ -1158,6 +1180,53 @@ views[HANDBRAKE] = value => {
   handbrakeInput.checked = engaged;
   $('#handbrakeInfo').textContent = `${engaged ? 'ENGAGED' : 'RELEASED'} · ${hex(toRaw(HANDBRAKE, value))}`;
 };
+
+//
+// Fuel level
+//
+const fuelInput = $('#fuelLevel');
+const fuelPercentToRaw = percent => {
+  const bounded = Math.min(Math.max(percent, 0), 100);
+  return Math.round(bounded <= 50
+    ? 37 + (18 - 37) * bounded / 50
+    : 18 + (4 - 18) * (bounded - 50) / 50);
+};
+const rawToFuelPercent = raw => {
+  const output = Math.min(Math.max(Math.round(raw), 4), 37);
+  return Math.round(Math.min(Math.max(output >= 18
+    ? (37 - output) / 19 * 50
+    : 50 + (18 - output) / 14 * 50, 0), 100));
+};
+fuelInput.addEventListener('input', () => {
+  const raw = fuelPercentToRaw(+fuelInput.value);
+  setSignal(FUEL_1, fromRaw(FUEL_1, raw));
+  setSignal(FUEL_2, fromRaw(FUEL_2, raw));
+});
+views[FUEL_1] = value => {
+  const raw = toRaw(FUEL_1, value);
+  const percent = rawToFuelPercent(raw);
+  fuelInput.value = percent;
+  setFill(fuelInput);
+  $('#fuelLevelInfo').textContent = `${percent}% · signal ${hex(raw, 4)}`;
+};
+
+//
+// Oil and engine temperature
+//
+const oilTempInput = $('#oilTemp');
+oilTempInput.addEventListener('input', () => {
+  const temp = +oilTempInput.value;
+  setSignal(OIL_TEMP, temp);
+  setSignal(ENGINE_TEMP, temp);
+});
+const renderTemperature = (signal, value) => {
+  const temp = fromRaw(signal, toRaw(signal, value));
+  oilTempInput.value = temp;
+  setFill(oilTempInput);
+  $('#oilTempInfo').textContent = `${Math.round(temp)} °C · ${signal} raw ${hex(toRaw(signal, value))}`;
+};
+views[OIL_TEMP] = value => renderTemperature(OIL_TEMP, value);
+views[ENGINE_TEMP] = value => renderTemperature(ENGINE_TEMP, value);
 
 //
 // Steering wheel button state
@@ -1348,6 +1417,8 @@ $('#host').textContent = (location.host || 'offline preview') + ' · ESP32-S3 ·
 setFill(speedInput);
 setFill(rpmInput);
 setFill(blInput);
+setFill(fuelInput);
+setFill(oilTempInput);
 renderIndicators();
 let telOpen = false;
 try { telOpen = localStorage.getItem('f30.telemetry') === '1'; } catch (e) {}
