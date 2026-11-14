@@ -88,12 +88,12 @@ extra:
 
 nav:
   - Overview: index.md
-  - Setup & Usage: setup.md
-  - System Design:
+  - Setup and usage: setup.md
+  - System design:
       - Architecture: architecture.md
-      - API Reference: api.md
-  - Automotive Reference:
-      - BMW F30 Instrument Cluster: F30-cluster.md
+      - API reference: api.md
+  - Automotive reference:
+      - BMW F30 instrument cluster: F30-cluster.md
       - BMW F30 CAN IDs: F30-can-ids.md
-      - DBC Files: DBC-overview.md
+      - DBC files: DBC-overview.md
       - OBD-II: OBD2-overview.md

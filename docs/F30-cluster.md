@@ -1,12 +1,12 @@
-# BMW F30 Instrument Cluster
+# BMW F30 instrument cluster
 
-These are the protocol rules the cluster expects (checksum, rolling counters, update rates) and the frames it transmits on its own. The per-message mapping of IDs, payloads, CRC constants and signals is on the [BMW F30 CAN IDs](F30-can-ids.md) page.
+This page covers the rules the cluster expects its messages to follow (checksum, rolling counters, update rates) and the frames it sends by itself. Which IDs, payloads, CRC constants and signals the firmware uses is listed on the [BMW F30 CAN IDs](F30-can-ids.md) page.
 
 ## Checksum
 
 The F30 gauge cluster uses `SAE J1850 CRC8` as its checksum algorithm.
 
-`getCrc8()` in `include/crc/crc.hpp` implements it with a lookup table, using polynomial `0x1D` and initial value `0xFF`. The CRC is computed over the payload *after* the counter has been inserted. The result is XOR-ed with a constant that differs for every CAN ID (`DBCMessage::final_xor`) and sent as **byte 0** of the frame.
+`getCrc8()` in `include/crc/crc.hpp` implements it with a lookup table, polynomial `0x1D` and initial value `0xFF`. The CRC is computed over the payload after the counter has been written. The result is XOR-ed with a constant that is different for every CAN ID (`DBCMessage::final_xor`) and sent as byte 0 of the frame.
 
 The per-ID constants are in the [implemented messages](F30-can-ids.md#implemented-messages) table, and [Frame encoding](architecture.md#worked-example-speed-0x1a1) has a worked example.
 
@@ -36,9 +36,9 @@ The firmware defines three counters:
 
 | Counter | Definition | Values | Advanced | Used by |
 | --- | --- | --- | --- | --- |
-| `counter_4bit` | `Counter(0, 14, 4)` | 0–14, 4 bits | every 20 ms | The properties above that are implemented, plus ABS, power steering, airbag, seatbelt, TPMS and oil status |
-| `counter_acc` | `Counter(0, 14, 4, 4)` | 0, 4, 8, 12, 1, 5, 9, 13, 2, … (step 4, modulo 15) | every 100 ms | `0x33B` Acc. It does not use the 20 ms counter, but has its own. |
-| `counter_alive` | `Counter(0, 254, 8)` | 0–254, 8 bits | every 100 ms | `0x0D7` alive counter |
+| `counter_4bit` | `Counter(0, 14, 4)` | 0-14, 4 bits | every 20 ms | The properties above that we implemented, plus ABS, power steering, airbag, seatbelt, TPMS and oil status |
+| `counter_acc` | `Counter(0, 14, 4, 4)` | 0, 4, 8, 12, 1, 5, 9, 13, 2, ... (step 4, modulo 15) | every 100 ms | `0x33B` Acc. It doesn't use the 20 ms counter, it has its own. |
+| `counter_alive` | `Counter(0, 254, 8)` | 0-254, 8 bits | every 100 ms | `0x0D7` alive counter |
 
 Every counter sits in the low bits of payload byte 0, which is bus byte 1, right after the CRC. Engine temperature (`0x2C4`) has a CRC but no counter.
 
@@ -50,7 +50,7 @@ In open-source code that interfaces with the cluster it is updated in the follow
 - `Every 100ms` - Ignition, Basic Drive Info, Gear, Fuel, Parking Brake, Distance, Alerts, Acc
 - `Every 500ms` - Lights, Blinkers, Backlight Brightness, Drive Mode
 
-The firmware uses the same three periods. Each message's period is in the *Period* column of the [implemented messages](F30-can-ids.md#implemented-messages) table.
+The firmware uses the same three periods. The *Period* column of the [implemented messages](F30-can-ids.md#implemented-messages) table shows which one each message uses.
 
 ## Packets sent by the cluster
 

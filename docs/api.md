@@ -1,6 +1,6 @@
-# API Reference
+# API reference
 
-The firmware exposes three interfaces:
+The firmware has three interfaces:
 
 | Interface | Transport | Used for |
 | --- | --- | --- |
@@ -12,11 +12,11 @@ All routes are registered in `init_api()` in `src/http/api.cpp`.
 
 ## Conventions
 
-- **Signals are addressed by name**, e.g. `speed-value`, `blinker-left` or `ignition-state`. `GET /api/scheduler` lists all names; the [signal reference](F30-can-ids.md#signal-reference) describes the F30 signals.
-- **Values are engineering values** (`double`). The firmware converts them to raw bits as described in [Frame encoding](architecture.md#frame-encoding).
-- **CAN IDs are JSON numbers in decimal**, e.g. `417` is `0x1A1`.
-- **Byte arrays are JSON arrays of numbers 0–255.**
-- **No authentication and no CORS headers.** The API is meant for a trusted local network and for the dashboard served from the same origin.
+- Signals are addressed by name, for example `speed-value`, `blinker-left` or `ignition-state`. `GET /api/scheduler` lists all names, and the [signal reference](F30-can-ids.md#signal-reference) describes the F30 signals.
+- Values are engineering values (`double`). [Frame encoding](architecture.md#frame-encoding) shows how they are turned into raw bits.
+- CAN IDs are decimal JSON numbers, so `417` is `0x1A1`.
+- Byte arrays are JSON arrays of numbers from 0 to 255.
+- There is no authentication and no CORS header. The API is meant for a trusted local network and for the dashboard, which is served from the same origin.
 
 ## HTTP REST API
 
@@ -27,11 +27,11 @@ All routes are registered in `init_api()` in `src/http/api.cpp`.
 | `GET` | [`/api/scheduler`](#get-apischeduler) | Timers, messages, signals and their current values |
 | `PATCH` | [`/api/signals/{name}`](#patch-apisignalsname) | Set one signal value |
 
-Any other path or method returns **404**.
+Any other path or method returns 404.
 
 ### `GET /`
 
-Returns the dashboard: one self-contained HTML document with inline CSS and JavaScript, stored in flash as the `html` string from `include/http/html.hpp`.
+Returns the dashboard: a single HTML document with inline CSS and JavaScript, stored in flash as the `html` string from `include/http/html.hpp`.
 
 | | |
 | --- | --- |
@@ -39,7 +39,7 @@ Returns the dashboard: one self-contained HTML document with inline CSS and Java
 
 ### `GET /api/read`
 
-Returns the most recent received CAN frames, oldest first, at most 100 (`CANManager::MAX_HISTORY_SIZE`). The data comes from a snapshot that `update_api()` refreshes every 250 ms, so it can be up to 250 ms old.
+Returns the most recently received CAN frames, oldest first, at most 100 (`CANManager::MAX_HISTORY_SIZE`). The data comes from a snapshot that `update_api()` refreshes every 250 ms, so it can be up to 250 ms old.
 
 | | |
 | --- | --- |
@@ -64,18 +64,18 @@ Returns the most recent received CAN frames, oldest first, at most 100 (`CANMana
     }
     ```
 
-    These are frames `0x1B3` and `0x2C5`, which the cluster sends itself (see [Packets sent by the cluster](F30-cluster.md#packets-sent-by-the-cluster)).
+    These are frames `0x1B3` and `0x2C5`, which the cluster sends by itself (see [Packets sent by the cluster](F30-cluster.md#packets-sent-by-the-cluster)).
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `type` | string | Always `"frames"`. The same document is used as a WebSocket message. |
+| `type` | string | Always `"frames"`. The WebSocket uses the same document. |
 | `frames[].id` | number | Identifier as reported by `mcp_can`. Bit 31 (`0x80000000`) is set for 29-bit extended frames and bit 30 (`0x40000000`) for remote frames. |
-| `frames[].dlc` | number | Data length code (0–8) |
+| `frames[].dlc` | number | Data length code (0 to 8) |
 | `frames[].data` | number[] | `dlc` payload bytes |
 
 ### `GET /api/scheduler`
 
-Returns the complete active scheduler: every timer with its messages, and every message with its signals and current values. The dashboard uses it to learn which signals exist and how they are encoded.
+Returns the whole active scheduler: every timer with its messages, and every message with its signals and their current values. The dashboard uses it to find out which signals exist and how they are encoded.
 
 | | |
 | --- | --- |
@@ -123,24 +123,24 @@ Returns the complete active scheduler: every timer with its messages, and every 
     }
     ```
 
-    The real response continues with the 100 ms timer (15 messages) and the 500 ms timer (4 messages).
+    The real response goes on with the 100 ms timer (15 messages) and the 500 ms timer (4 messages).
 
 | Field | Type | Description |
 | --- | --- | --- |
 | `timers[].interval` | number | Timer period in ms |
 | `messages[].id` | number | CAN ID (decimal) |
-| `messages[].name` | string | Human-readable message name |
+| `messages[].name` | string | Readable message name |
 | `messages[].counter` | number | Current value of the message's rolling counter, or `-1` if it has none |
-| `messages[].dlc` | number | Payload length *before* the CRC byte; with a CRC the bus frame is `dlc + 1` bytes |
-| `messages[].default_payload` | number[8] | Template payload; always 8 entries, only the first `dlc` are used |
+| `messages[].dlc` | number | Payload length before the CRC byte. With a CRC, the frame on the bus is `dlc + 1` bytes. |
+| `messages[].default_payload` | number[8] | Template payload. Always 8 entries, only the first `dlc` are used. |
 | `signals[].name` | string | Name used by `PATCH` and the WebSocket |
-| `signals[].start_bit`, `bit_length` | number | Bit position within the payload and width |
-| `signals[].factor`, `offset` | number | Scaling between value and raw bits |
+| `signals[].start_bit`, `bit_length` | number | Bit position within the payload, and width |
+| `signals[].factor`, `offset` | number | Scaling between the value and the raw bits |
 | `signals[].value` | number | Current engineering value |
 
 ### `PATCH /api/signals/{name}`
 
-Sets one signal value. The route is the regular expression `^\/api\/signals\/([\w-]+)$`, which needs the `-DASYNCWEBSERVER_REGEX` build flag, so `{name}` may contain letters, digits, `_` and `-`.
+Sets one signal value. The route is the regular expression `^\/api\/signals\/([\w-]+)$`, which needs the `-DASYNCWEBSERVER_REGEX` build flag. `{name}` can therefore contain letters, digits, `_` and `-`.
 
 The value is taken from the first of these sources that is present:
 
@@ -151,12 +151,12 @@ The value is taken from the first of these sources that is present:
 | 3 | JSON object with a numeric `value` | body `{"value": 138}` |
 | 4 | Bare JSON number | body `138` |
 
-Text values from the query string or form must parse completely as a finite number. JSON values must be numbers. Bodies larger than 256 bytes are ignored and produce a `400`.
+A value from the query string or a form must parse completely as a finite number. A JSON value must be a number. Bodies larger than 256 bytes are ignored, which results in a `400`.
 
 | Status | Body | When |
 | --- | --- | --- |
-| `200 OK` | `{"status":"success"}` | Value applied. A `state` message is also broadcast to every WebSocket client. |
-| `400 Bad Request` | `{"status":"error","message":"Missing or invalid 'value' parameter"}` | No value found, or not a valid number |
+| `200 OK` | `{"status":"success"}` | The value was applied. A `state` message is also broadcast to every WebSocket client. |
+| `400 Bad Request` | `{"status":"error","message":"Missing or invalid 'value' parameter"}` | No value found, or it is not a valid number |
 | `404 Not Found` | `{"status":"error","message":"Signal not found"}` | No signal with that name in the active scheduler |
 
 === "Query parameter"
@@ -235,14 +235,14 @@ sequenceDiagram
 {"type":"sync"}
 ```
 
-Processing rules:
+How the server handles incoming messages:
 
-- Only complete, unfragmented **text** frames are processed.
-- Malformed JSON is ignored silently.
+- Only complete, unfragmented text frames are processed.
+- Malformed JSON is silently ignored.
 - Values must be JSON numbers or booleans (`true` is 1, `false` is 0). Strings and other types are skipped.
 - Unknown signal names are skipped. The server sends no error and no acknowledgement.
-- If at least one value was applied, a `state` message goes to **all** clients, including the sender. Otherwise nothing is sent.
-- `type` is only checked for `"sync"`. Any other message with a `values` object, or with `signal`/`value` fields, is treated as an update.
+- If at least one value was applied, a `state` message goes to all clients, the sender included. If nothing was applied, nothing is sent.
+- `type` is only checked for `"sync"`. Any other message with a `values` object, or with `signal` and `value` fields, is treated as an update.
 
 ### Server to client: `state`
 
@@ -269,7 +269,7 @@ The device status, all signal values and the current encoded payload of every sc
 }
 ```
 
-This example is trimmed: the real message lists all 21 signals and has one `tx` entry for each of the 21 messages.
+The example is shortened. The real message lists all 21 signals and has one `tx` entry for each of the 21 messages.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -278,13 +278,13 @@ This example is trimmed: the real message lists all 21 signals and has one `tx` 
 | `uptime` | number | Milliseconds since boot (`millis()`) |
 | `heap` | number | Free heap in bytes (`ESP.getFreeHeap()`) |
 | `clients` | number | Connected WebSocket clients |
-| `net.mode` | string | `"STA"` when joined to a Wi-Fi network, otherwise `"AP"` |
-| `net.ip` | string | Station IP, or the access-point IP (`192.168.4.1`) in AP mode |
-| `net.rssi` | number | Signal strength in dBm; STA mode only |
+| `net.mode` | string | `"STA"` when connected to a Wi-Fi network, otherwise `"AP"` |
+| `net.ip` | string | Station IP, or the access point IP (`192.168.4.1`) in AP mode |
+| `net.rssi` | number | Signal strength in dBm, STA mode only |
 | `signals` | object | `{ "<name>": value }` for every signal of the active scheduler |
 | `tx[].id` | number | CAN ID of a scheduled message, in scheduler order |
-| `tx[].crc` | boolean | `true` if `sendMessage()` prepends a CRC byte on the bus |
-| `tx[].data` | number[] | The first `dlc` bytes from `getBytes()`: the payload with the counter's current value and *without* the CRC byte |
+| `tx[].crc` | boolean | `true` if `sendMessage()` adds a CRC byte on the bus |
+| `tx[].data` | number[] | The first `dlc` bytes from `getBytes()`: the payload with the counter's current value and without the CRC byte |
 
 ### Server to client: `frames`
 
@@ -295,11 +295,11 @@ The same document as [`GET /api/read`](#get-apiread): `{"type":"frames","frames"
 | Message | Trigger | Recipients |
 | --- | --- | --- |
 | `state` | Connect, `sync` | Requesting client |
-| `state` | Every 1000 ms, and immediately after every accepted change (WebSocket `set` or HTTP `PATCH`) | All clients |
+| `state` | Every 1000 ms, and right after every accepted change (WebSocket `set` or HTTP `PATCH`) | All clients |
 | `frames` | Connect, `sync` | Requesting client |
 | `frames` | Every 250 ms if the RX history changed | All clients |
 
-Periodic broadcasts are only sent while at least one client is connected. Once per second the server also calls `cleanupClients()`, which closes the oldest connections beyond the library's client limit.
+Periodic broadcasts only go out while at least one client is connected. Once per second the server also calls `cleanupClients()`, which closes the oldest connections above the library's client limit.
 
 ### Example client
 
@@ -323,15 +323,15 @@ ws.onmessage = event => {
 
 ### How the dashboard uses the protocol
 
-- **Throttling.** Changes made at the same moment are combined into one `set` message, sent at most every 40 ms.
-- **Echo suppression.** For 450 ms after the user changes a signal, incoming `state` values for that signal are ignored, so the control does not jump back while it is being dragged.
-- **Reconnect.** If no message arrives for 4 s, the socket is considered dead. Reconnects back off exponentially from 0.5 s to 8 s.
-- **HTTP fallback.** While the WebSocket is down, the page polls `GET /api/scheduler` and `GET /api/read` every 1.5 s and sends changes as `PATCH` requests, at most every 120 ms.
-- **Tab focus.** When the tab becomes visible again, the page sends `sync`, or reconnects immediately.
+- Changes made at the same moment are batched into one `set` message, sent at most every 40 ms.
+- For 450 ms after the user changes a signal, incoming `state` values for that signal are ignored, so a slider doesn't jump back while it is being dragged.
+- If nothing arrives for 4 s, the socket is treated as dead. Reconnect attempts back off exponentially from 0.5 s up to 8 s.
+- While the WebSocket is down, the page polls `GET /api/scheduler` and `GET /api/read` every 1.5 s and sends changes as `PATCH` requests, at most every 120 ms.
+- When the tab becomes visible again, the page sends `sync`, or reconnects straight away.
 
 ## C++ firmware API
 
-How these classes work together at runtime is described in [System Architecture](architecture.md).
+How these classes work together at runtime is described in [System architecture](architecture.md).
 
 ### Global objects
 
@@ -402,7 +402,7 @@ public:
 
 ### `Timer`
 
-`include/timer.hpp` and `src/timer.cpp` group messages that are sent with the same period.
+`include/timer.hpp` and `src/timer.cpp` group the messages that are sent with the same period.
 
 ```cpp
 class Timer {
@@ -483,7 +483,7 @@ void update_api(bool can_ready);                            // call from loop()
 
 ```cpp
 Scheduler& init_scheduler_f30_cluster(void);   // BMW F30 instrument cluster (src/devices/f30_cluster.cpp)
-Scheduler& init_scheduler_a4b7_radio(void);    // Audi A4 B7 radio – stub, no messages yet
+Scheduler& init_scheduler_a4b7_radio(void);    // Audi A4 B7 radio: stub, no messages yet
 ```
 
 `setup()` selects the device with `current_scheduler = init_scheduler_f30_cluster();`.
@@ -499,9 +499,15 @@ Logger::print(INFO, "CAN", "Initialized CAN");   // printf-style; messages above
 
 ### Adding a new device
 
-Contributions are welcome: open a pull request with the features you want added, and implementations for new devices are especially welcome. To add a device, create a file named after it in `src/devices/`, declare its factory in `include/devices.hpp`, and build its `Scheduler` there. `f30_cluster.cpp` is a complete working example.
+Pull requests are welcome, especially ones that add support for new devices. To add a device:
 
-The example below adds a hypothetical 4-byte message `0x123`; it is **not** a real F30 message. It has one scaled temperature signal, the shared 4-bit counter and a CRC, and is sent every 100 ms. The code goes into `src/devices/f30_cluster.cpp`, next to the existing definitions:
+1. Create a file named after it in `src/devices/`.
+2. Declare its factory function in `include/devices.hpp`.
+3. Build its `Scheduler` in that function.
+
+`f30_cluster.cpp` is a complete working example.
+
+The example below adds a made-up 4-byte message `0x123`; it is not a real F30 message. It has one scaled temperature signal, the shared 4-bit counter and a CRC, and is sent every 100 ms. The code goes into `src/devices/f30_cluster.cpp`, next to the existing definitions:
 
 ```cpp title="src/devices/f30_cluster.cpp"
 // 1. Message: 4 payload bytes + 1 CRC byte = 5-byte frame on the bus
@@ -536,15 +542,15 @@ Scheduler& init_scheduler_f30_cluster() {
 }
 ```
 
-After flashing, the message appears in the dashboard's **Transmitted** table, and the signal can be controlled straight away without changing `api.cpp`:
+After flashing, the message shows up in the dashboard's **Transmitted** table, and you can control the signal straight away without changing `api.cpp`:
 
 ```bash
 curl -X PATCH "http://f30.local/api/signals/example-temp?value=90"
 ```
 
-Rules:
+Things to keep in mind:
 
-- With a CRC, `dlc` must be **7 or less**, because the CRC byte takes one of the 8 bytes of a classic CAN frame.
-- `push_back()` **copies** the signal. Runtime updates change the copy inside `message.signals`, not the static `DBCSignal` object.
-- Signal names must be **unique**, because `updateSignalValue()` updates the first match. Use only letters, digits, `_` and `-`, so that the `PATCH` route matches the name.
-- A counter only advances if it is registered with a timer (`timer.counters`); see [Counter sharing](architecture.md#scheduling-and-timing).
+- With a CRC, `dlc` can be at most 7, because the CRC byte takes one of the 8 bytes of a classic CAN frame.
+- `push_back()` copies the signal. Runtime updates change the copy inside `message.signals`, not the static `DBCSignal` object.
+- Signal names must be unique, because `updateSignalValue()` updates the first match. Use only letters, digits, `_` and `-`, so that the `PATCH` route matches the name.
+- A counter only advances if it is registered with a timer (`timer.counters`); see [Scheduling and timing](architecture.md#scheduling-and-timing).

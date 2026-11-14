@@ -1,4 +1,4 @@
-# DBC Files
+# DBC files
 
 A `DBC` file contains the information necessary for decoding a CAN frame of a given ID.
 
@@ -22,15 +22,15 @@ SG_ <Name> : <Start_Bit>|<Bit_Len>@<Sign><Endian> (<Scale>,<Offset>) [<Range_Fro
 SG_ EngineSpeed : 16|16@1+ (0.25,0) [0|16383.75] "rpm" EngineDisplay
 ```
 
-In the example, `EngineSpeed` starts at bit 16 and is 16 bits long. `@1` means little-endian (Intel) byte order and `+` means unsigned. Its physical value is `raw × 0.25 + 0`, in rpm.
+In the example, `EngineSpeed` starts at bit 16 and is 16 bits long. `@1` means little-endian (Intel) byte order and `+` means unsigned. The physical value is `raw * 0.25 + 0`, in rpm.
 
 `Signals` define each field that is sent as a part of a `Message`.
 
 A rolling counter is a signal (a part of the frame).
 
-## How this project maps DBC concepts
+## How we map DBC concepts to C++
 
-The firmware does not parse `.dbc` files. Device profiles describe the same information directly in C++:
+The firmware does not parse `.dbc` files. Instead, each device profile describes the same information directly in C++:
 
 | DBC concept | Firmware equivalent |
 | --- | --- |
@@ -38,13 +38,13 @@ The firmware does not parse `.dbc` files. Device profiles describe the same info
 | `SG_` signal | `DBCSignal` in `DBCMessage::signals` |
 | Start bit and bit length | `start_bit`, `bit_length` |
 | `@1+` little-endian, unsigned | The only encoding implemented |
-| `(<Scale>,<Offset>)` | `factor`, `offset`: `raw = (value − offset) / factor` |
+| `(<Scale>,<Offset>)` | `factor`, `offset`: `raw = (value - offset) / factor` |
 | Range, unit, receiver | Not modelled |
 | Rolling counter signal | `Counter` attached to `DBCMessage::counter` at `counter_start_bit` |
-| Checksum signal | `DBCMessage::crc_func` + `final_xor`; the CRC is prepended as byte 0 |
+| Checksum signal | `DBCMessage::crc_func` + `final_xor`; the CRC is put in front as byte 0 |
 | Message cycle time | The `Timer` the message is added to |
 
-Firmware bit positions refer to the payload *before* the CRC is prepended (see [Frame encoding](architecture.md#frame-encoding)). They are therefore 8 lower than in a DBC description of the frame on the bus. For example, the speed message `0x1A1` would be described in a DBC file roughly like this (illustrative; DBC names cannot contain `-`):
+Bit positions in the firmware refer to the payload before the CRC is added (see [Frame encoding](architecture.md#frame-encoding)), so they are 8 lower than in a DBC description of the frame on the bus. For example, the speed message `0x1A1` would look roughly like this in a DBC file (just an illustration; DBC names can't contain `-`):
 
 ```text
 BO_ 417 Speed: 5 ESP32

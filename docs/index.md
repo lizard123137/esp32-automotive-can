@@ -1,35 +1,39 @@
 # ESP32 Automotive CAN & BMW F30 Cluster Controller
 
-*Engineering report for the **IoT Devices** university course, by [Michał Gagoś and Kamil Kostka](#authors).*
+*Engineering report for the IoT Devices university course, by [Michał Gagoś and Kamil Kostka](#authors).*
 
 ## Abstract
 
-Modern vehicles exchange state between electronic control units (ECUs) over the Controller Area Network (**CAN**). This project presents a low-cost, Wi-Fi-connected CAN interface built from an **ESP32-S3** microcontroller and an **MCP2515** CAN controller. It has two roles:
+Cars pass data between their electronic control units (ECUs) over a CAN bus. For this project we built a cheap, Wi-Fi-connected CAN interface from an ESP32-S3 microcontroller and an MCP2515 CAN controller.
 
-- a **passive traffic scanner**;
-- a **periodic ECU simulator**. Its frames are specified declaratively, following the message/signal model of the industry-standard `.dbc` format, and include rolling counters and SAE J1850 CRC-8 checksums.
+It does two things at once:
 
-A self-hosted web dashboard and a REST/WebSocket API change any signal in real time. The system is demonstrated on a **BMW F30 (3 Series) instrument cluster** on a laboratory bench. There, 21 simulated messages drive the gauges, indicators and warning functions without the rest of the vehicle being present.
+- It logs all traffic on the bus.
+- It acts as a set of simulated ECUs that send periodic frames.
+
+The frames are not hard-coded byte arrays. Each one is described as a message made of signals, the same model `.dbc` files use. The firmware adds the rolling counters and SAE J1850 CRC-8 checksums the receiver expects.
+
+A web dashboard served by the ESP32, plus a REST and WebSocket API, lets you change any signal while the system is running. We tested it on a BMW F30 (3 Series) instrument cluster on a bench. There, 21 simulated messages drive the gauges, indicators and warning lights with no car attached.
 
 ## Objectives
 
-- Describe an automotive device declaratively, as timers, messages and signals, instead of hard-coded byte arrays.
-- Let the firmware handle transmission timing, bit packing, rolling counters and checksums.
-- Monitor and control the bus remotely and in real time over Wi-Fi, from any browser.
-- Demonstrate the approach on real automotive hardware.
+- Describe a device as timers, messages and signals instead of hard-coded byte arrays.
+- Let the firmware take care of transmission timing, bit packing, rolling counters and checksums.
+- Monitor and control the bus over Wi-Fi, in real time, from any browser.
+- Show that the approach works on real automotive hardware.
 
-## Key capabilities
+## Capabilities
 
 | Capability | Description | Implementation |
 | --- | --- | --- |
-| **CAN traffic scanner** | Receives every frame on the bus, with no acceptance filters. Keeps the last 100 frames and streams them to the browser and the REST API. | `CANManager` (`include/can.hpp`) |
-| **DBC-based ECU simulator** | Sends 21 BMW F30 messages on three timers (20, 100 and 500 ms) with DBC-style signals, rolling counters and SAE J1850 CRC-8 checksums. | `Scheduler`, `Timer`, `DBCMessage`, `DBCSignal` |
-| **Web dashboard** | A self-contained single-page app served from flash. Live control over a WebSocket, with HTTP fallback. | `include/http/html.hpp` |
-| **REST + WebSocket API** | Reads received frames and the scheduler, and sets any signal by name. | `src/http/api.cpp` |
-| **Networking** | Joins Wi-Fi as `http://f30.local/` via mDNS, or opens a fallback access point. | `src/main.cpp` |
-| **Robust boot** | The web UI starts even without the MCP2515; CAN initialisation is retried every 5 s. | `src/main.cpp` |
+| CAN traffic scanner | Receives every frame on the bus, with no acceptance filters. Keeps the last 100 and streams them to the browser and the REST API. | `CANManager` (`include/can.hpp`) |
+| DBC-based ECU simulator | Sends 21 BMW F30 messages on three timers (20, 100 and 500 ms), with DBC-style signals, rolling counters and SAE J1850 CRC-8 checksums. | `Scheduler`, `Timer`, `DBCMessage`, `DBCSignal` |
+| Web dashboard | Single-page app stored in flash. Controls every signal over a WebSocket and falls back to HTTP if the WebSocket drops. | `include/http/html.hpp` |
+| REST and WebSocket API | Reads received frames and the scheduler, and sets any signal by name. | `src/http/api.cpp` |
+| Networking | Joins your Wi-Fi as `http://f30.local/` (mDNS). If that fails, it opens its own access point. | `src/main.cpp` |
+| Boots without CAN | The web UI comes up even if the MCP2515 does not respond. CAN init is retried every 5 s. | `src/main.cpp` |
 
-On the F30 cluster the dashboard controls:
+On the F30 cluster, the dashboard controls:
 
 - the speedometer and rev counter;
 - ignition, drive modes and the gear display;
@@ -37,7 +41,7 @@ On the F30 cluster the dashboard controls:
 - check-control alerts and the parking brake;
 - the fuel and temperature gauges and the steering wheel buttons.
 
-The firmware also keeps the ABS, power-steering, airbag, seatbelt and TPMS (tyre pressure) warnings off. The full message and signal mapping is on the [BMW F30 CAN IDs](F30-can-ids.md) page.
+The firmware also sends "OK" status messages for ABS, power steering, airbag, seatbelt and TPMS (tyre pressure monitoring), so those warning lights stay off. [BMW F30 CAN IDs](F30-can-ids.md) has the full list of messages and signals.
 
 ## Live demo
 
@@ -52,9 +56,9 @@ The firmware also keeps the ABS, power-steering, airbag, seatbelt and TPMS (tyre
 | 1 | BMW F30 instrument cluster | Device under test |
 | 1 | 12 V bench power supply | Powers the cluster |
 | 1 | LM2596 step-down converter, set to 5 V | Powers the XIAO and the CAN module |
-| – | Connector harness, jumper wires, USB-C cable | Interconnect and programming |
+| - | Connector harness, jumper wires, USB-C cable | Wiring and programming |
 
-The wiring schematic, pinouts and power-up procedure are in [Setup & Usage](setup.md#1-hardware-wiring).
+The wiring diagram, pinouts and power-up steps are in [Setup and usage](setup.md#1-hardware-wiring).
 
 ## Repository structure
 
@@ -66,11 +70,11 @@ esp32-automotive-can/
 ├── include/
 │   ├── can.hpp                 # CANFrame, CANManager (RX history), SPI_CS_PIN
 │   ├── counter.hpp             # Counter (rolling counters)
-│   ├── crc/crc.hpp             # getCrc8() – SAE J1850 CRC-8
-│   ├── dbc/dbc_message.hpp     # DBCMessage – bit packing, counter, CRC, send
+│   ├── crc/crc.hpp             # getCrc8(): SAE J1850 CRC-8
+│   ├── dbc/dbc_message.hpp     # DBCMessage: bit packing, counter, CRC, send
 │   ├── dbc/dbc_signal.hpp      # DBCSignal
-│   ├── timer.hpp               # Timer – periodic group of messages
-│   ├── scheduler.hpp           # Scheduler – set of timers, signal lookup
+│   ├── timer.hpp               # Timer: periodic group of messages
+│   ├── scheduler.hpp           # Scheduler: set of timers, signal lookup
 │   ├── devices.hpp             # Device profile factory prototypes
 │   ├── http/api.hpp            # init_api(), update_api()
 │   ├── http/html.hpp           # Web dashboard (PROGMEM string)
@@ -91,13 +95,13 @@ esp32-automotive-can/
 
 | Author | GitHub | LinkedIn |
 | --- | --- | --- |
-| **Michał Gagoś** | [:fontawesome-brands-github: lizard123137](https://github.com/lizard123137) | [:fontawesome-brands-linkedin: michal-gagos](https://www.linkedin.com/in/michal-gagos/) |
-| **Kamil Kostka** | [:fontawesome-brands-github: KaloeSan](https://github.com/KaloeSan) | [:fontawesome-brands-linkedin: kamilkostka](https://www.linkedin.com/in/kamilkostka/) |
+| Michał Gagoś | [:fontawesome-brands-github: lizard123137](https://github.com/lizard123137) | [:fontawesome-brands-linkedin: michal-gagos](https://www.linkedin.com/in/michal-gagos/) |
+| Kamil Kostka | [:fontawesome-brands-github: KaloeSan](https://github.com/KaloeSan) | [:fontawesome-brands-linkedin: kamilkostka](https://www.linkedin.com/in/kamilkostka/) |
 
 ## Credits
 
-- [CarCluster by r00li](https://github.com/r00li/CarCluster) helped us greatly with figuring out how to communicate with the cluster.
-- The [openinverter.org wiki](https://openinverter.org/wiki/BMW_F-Series_Gear_Lever) documents the F-series gear selector (GWS) messages.
+- [CarCluster by r00li](https://github.com/r00li/CarCluster) helped us a lot with figuring out how to talk to the cluster.
+- The [openinverter.org wiki](https://openinverter.org/wiki/BMW_F-Series_Gear_Lever) documents the messages of the F-series gear selector (GWS).
 - [node-bmw-ref by kmalinich](https://github.com/kmalinich/node-bmw-ref) is a reference for BMW CAN IDs.
 
 The project is released under the GNU General Public License v3.0.
