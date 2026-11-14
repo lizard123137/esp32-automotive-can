@@ -13,6 +13,7 @@ What doesn't work yet (the fuel and temperature gauges, `OBD II` scanning, other
 
 The full documentation is in [`docs/`](docs/):
 
+- **[Full Engineering Report (PDF)](docs/esp32-automotive-can-report.pdf)** - Complete printable documentation
 - [Overview](docs/index.md): abstract, objectives, capabilities, hardware, repository structure, authors
 - [Setup and usage](docs/setup.md): wiring, Wi-Fi configuration, building and flashing, the web dashboard
 - [System architecture](docs/architecture.md): data paths, frame encoding, scheduling, concurrency, modules, known limitations

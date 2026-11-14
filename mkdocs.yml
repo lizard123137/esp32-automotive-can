@@ -97,3 +97,7 @@ nav:
       - BMW F30 CAN IDs: F30-can-ids.md
       - DBC files: DBC-overview.md
       - OBD-II: OBD2-overview.md
+
+# plugins:
+#   - search
+#   - print-site
