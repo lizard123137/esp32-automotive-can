@@ -1,0 +1,8 @@
+site_name: ESP32-S3 Automotive Canbus
+site_description: An esp32-s3 application for interfacing with automotive CAN BUS.
+
+theme:
+  name: mkdocs
+
+nav:
+  - Home: index.md

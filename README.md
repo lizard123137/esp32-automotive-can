@@ -15,4 +15,15 @@ Features that the entire project could use:
 - `OBD II` scanning
 - Examples for interfacing with other automotive devices
 
+
+## Docs
+
+This project uses `mkdocs` for its documentation. To host the documentation as a local website use:
+``` shell
+pip install mkdocs
+mkdocs serve
+```
+
+## Sources
+
 A repository that helped us greatly with figuring out how to communicate with the cluster -  [CarCluster by r00li](https://github.com/r00li/CarCluster).
