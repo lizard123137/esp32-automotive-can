@@ -1,8 +1,99 @@
-site_name: ESP32-S3 Automotive Canbus
-site_description: An esp32-s3 application for interfacing with automotive CAN BUS.
+site_name: ESP32 Automotive CAN & BMW F30 Cluster Controller
+site_description: >-
+  ESP32-S3 + MCP2515 CAN bus scanner and DBC-based ECU simulator with a web dashboard,
+  demonstrated on a BMW F30 instrument cluster.
+site_author: Michał Gagoś, Kamil Kostka
+
+repo_url: https://github.com/lizard123137/esp32-automotive-can
+repo_name: lizard123137/esp32-automotive-can
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; 2026 Michał Gagoś &amp; Kamil Kostka · Released under the GNU General Public License v3.0
 
 theme:
-  name: mkdocs
+  name: material
+  language: en
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+
+plugins:
+  - search
+
+# Make `mkdocs build --strict` fail on broken links and anchors, not just report them
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/lizard123137
+      name: Michał Gagoś on GitHub
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/michal-gagos/
+      name: Michał Gagoś on LinkedIn
+    - icon: fontawesome/brands/github
+      link: https://github.com/KaloeSan
+      name: Kamil Kostka on GitHub
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/kamilkostka/
+      name: Kamil Kostka on LinkedIn
 
 nav:
-  - Home: index.md
+  - Overview: index.md
+  - Setup & Usage: setup.md
+  - System Design:
+      - Architecture: architecture.md
+      - API Reference: api.md
+  - Automotive Reference:
+      - BMW F30 Instrument Cluster: F30-cluster.md
+      - BMW F30 CAN IDs: F30-can-ids.md
+      - DBC Files: DBC-overview.md
+      - OBD-II: OBD2-overview.md

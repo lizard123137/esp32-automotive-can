@@ -1,6 +1,19 @@
+# BMW F30 Instrument Cluster
+
+These are the protocol rules the cluster expects (checksum, rolling counters, update rates) and the frames it transmits on its own. The per-message mapping of IDs, payloads, CRC constants and signals is on the [BMW F30 CAN IDs](F30-can-ids.md) page.
+
+## Checksum
+
 The F30 gauge cluster uses `SAE J1850 CRC8` as its checksum algorithm.
 
+`getCrc8()` in `include/crc/crc.hpp` implements it with a lookup table, using polynomial `0x1D` and initial value `0xFF`. The CRC is computed over the payload *after* the counter has been inserted. The result is XOR-ed with a constant that differs for every CAN ID (`DBCMessage::final_xor`) and sent as **byte 0** of the frame.
+
+The per-ID constants are in the [implemented messages](F30-can-ids.md#implemented-messages) table, and [Frame encoding](architecture.md#worked-example-speed-0x1a1) has a worked example.
+
+## Rolling counter
+
 It also seems to be using a `4-bit counter` that increments every `20ms` and resets to `0` once it hits `14`. This counter is used to modify some of the data sent. The properties that use it are:
+
 - `Ignition status`
 - `Speed`
 - `RPM`
@@ -11,6 +24,7 @@ It also seems to be using a `4-bit counter` that increments every `20ms` and res
 - `Drive mode`
 
 Properties that don't use the counter:
+
 - `Fuel`
 - `Blinkers`
 - `Lights`
@@ -18,17 +32,33 @@ Properties that don't use the counter:
 - `Alerts`
 - `Acc`
 
+The firmware defines three counters:
+
+| Counter | Definition | Values | Advanced | Used by |
+| --- | --- | --- | --- | --- |
+| `counter_4bit` | `Counter(0, 14, 4)` | 0–14, 4 bits | every 20 ms | The properties above that are implemented, plus ABS, power steering, airbag, seatbelt, TPMS and oil status |
+| `counter_acc` | `Counter(0, 14, 4, 4)` | 0, 4, 8, 12, 1, 5, 9, 13, 2, … (step 4, modulo 15) | every 100 ms | `0x33B` Acc. It does not use the 20 ms counter, but has its own. |
+| `counter_alive` | `Counter(0, 254, 8)` | 0–254, 8 bits | every 100 ms | `0x0D7` alive counter |
+
+Every counter sits in the low bits of payload byte 0, which is bus byte 1, right after the CRC. Engine temperature (`0x2C4`) has a CRC but no counter.
+
+## Update rates
+
 In open-source code that interfaces with the cluster it is updated in the following way:
+
 - `Every 20ms` - Speed, RPM
 - `Every 100ms` - Ignition, Basic Drive Info, Gear, Fuel, Parking Brake, Distance, Alerts, Acc
 - `Every 500ms` - Lights, Blinkers, Backlight Brightness, Drive Mode
 
-### Packets sent by cluster
+The firmware uses the same three periods. Each message's period is in the *Period* column of the [implemented messages](F30-can-ids.md#implemented-messages) table.
+
+## Packets sent by the cluster
+
 As a side note the gauge cluster seems to be called `KOMBI` in the `dbc` files.
 
-The gauge cluster seems to also be sending some packets:
+The gauge cluster seems to also be sending some packets. The captures show the CAN ID, the DLC and the data bytes, as they appear in the dashboard's **Received** table or `GET /api/read`.
 
-#### `0x1B3`
+### `0x1B3`
 ```
 0x1B3    8    FC F6 01 F6 56 FF 82 79
 0x1B3    8    FC F6 01 F5 56 FF 82 78
@@ -71,7 +101,7 @@ The gauge cluster seems to also be sending some packets:
 
 ```
 
-#### `0x2C5`
+### `0x2C5`
 The default payload bytes are:
 `xx xx 00 10 3F 70 DC`
 
@@ -114,11 +144,11 @@ The default payload bytes are:
 0x2C5    7    C4 FC 00 10 3F 70 DC
 0x2C5    7    0B FB 00 10 3F 70 DC
 0x2C5    7    4D FA 00 10 3F 70 DC
-0x2C5	 7	  87 F9 00 10 3F 70 DC
+0x2C5    7    87 F9 00 10 3F 70 DC
 
 ```
 
-#### `0x2CA` Outside temperature
+### `0x2CA` Outside temperature
 According to [this repo](https://github.com/kmalinich/node-bmw-ref) this is the **outside temperature**.
 
 ```
@@ -128,7 +158,7 @@ According to [this repo](https://github.com/kmalinich/node-bmw-ref) this is the 
 0x2CA    2    FF FF
 ```
 
-#### `0x2F7`
+### `0x2F7`
 ```
 0x2F7    6    12 58 49 09 11 F2
 0x2F7    6    12 58 49 09 11 F2
@@ -136,7 +166,7 @@ According to [this repo](https://github.com/kmalinich/node-bmw-ref) this is the 
 0x2F7    6    12 58 49 09 11 F2
 ```
 
-#### `0x328`
+### `0x328`
 Relative time ???
 ```
 0x328    6    2F AA 00 00 3C 25
@@ -145,12 +175,12 @@ Relative time ???
 0x328    6    2C AA 00 00 3C 25
 ```
 
-#### `0x393`
+### `0x393`
 ```
 0x393    4    3F 32 25 FD
 ```
 
-#### `0x560`
+### `0x560`
 ```
 0x560    8    00 00 00 00 55 55 00 60
 0x560    8    00 00 00 00 55 55 00 60
@@ -160,7 +190,7 @@ Relative time ???
 0x560    8    00 00 00 00 55 55 00 60
 ```
 
-#### `0x5E0`
+### `0x5E0`
 ```
 0x5E0    8    11 03 00 02 FF FF 00 00
 0x5E0    8    11 03 00 01 FF FF 00 00

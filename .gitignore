@@ -6,3 +6,6 @@
 
 # Private WiFi credentials
 /include/secrets.hpp
+
+# MkDocs build output
+site/
