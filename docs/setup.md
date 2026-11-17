@@ -26,7 +26,7 @@ The MCP2515 uses the board's default SPI pins. The firmware selects the chip wit
 
 | MCP2515 module pin | XIAO ESP32-S3 pin | ESP32-S3 GPIO | Notes |
 | --- | --- | --- | --- |
-| `VCC` | `5V` (buck output) | - | The module's TJA1050 transceiver needs 5 V |
+| `VCC` | `5V` (buck output) | - | Needs 5 V |
 | `GND` | `GND` | - | |
 | `SCK` | `D8` | GPIO7 | SPI clock |
 | `SI` | `D10` | GPIO9 | MOSI |

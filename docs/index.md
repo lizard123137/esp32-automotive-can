@@ -11,9 +11,9 @@ It does two things at once:
 - It logs all traffic on the bus.
 - It acts as a set of simulated ECUs that send periodic frames.
 
-The frames are not hard-coded byte arrays. Each one is described as a message made of signals, the same model `.dbc` files use. The firmware adds the rolling counters and SAE J1850 CRC-8 checksums the receiver expects.
+The frames are not hard-coded byte arrays. Each one is described as a message made of signals, the same model `.dbc` files use. The firmware can add optional rolling counters and checksums the receiver might expect.
 
-A web dashboard served by the ESP32, plus a REST and WebSocket API, lets you change any signal while the system is running. We tested it on a BMW F30 (3 Series) instrument cluster on a bench. There, 21 simulated messages drive the gauges, indicators and warning lights with no car attached.
+A web dashboard served by the ESP32, plus a REST and WebSocket API, lets you change any signal while the system is running. We tested it on a BMW F30 (3 Series) instrument cluster on a bench. There we are using simulated CAN frames to drive the gauges, indicators and warning lights with no car attached.
 
 ## Objectives
 
@@ -52,7 +52,7 @@ The firmware also sends "OK" status messages for ABS, power steering, airbag, se
 | Qty | Component | Role |
 | --- | --- | --- |
 | 1 | Seeed Studio XIAO ESP32-S3 | Wi-Fi, web server, scheduler, SPI host |
-| 1 | MCP2515 CAN module with TJA1050 transceiver | SPI-to-CAN controller and bus driver |
+| 1 | MCP2515 CAN module | SPI-to-CAN |
 | 1 | BMW F30 instrument cluster | Device under test |
 | 1 | 12 V bench power supply | Powers the cluster |
 | 1 | LM2596 step-down converter, set to 5 V | Powers the XIAO and the CAN module |
